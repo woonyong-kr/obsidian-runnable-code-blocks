@@ -11,6 +11,7 @@ export default defineConfig({
   test: {
     exclude: ["tests/e2e/**", "node_modules/**", "dist-site/**"],
     environment: "happy-dom",
+    setupFiles: ["./tests/setup-dom.ts"],
     coverage: {
       exclude: ["site/main.ts"],
       include: ["src/**/*.ts"],

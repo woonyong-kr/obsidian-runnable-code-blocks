@@ -1,5 +1,12 @@
 # Changelog
 
+## 0.5.1
+
+- Require the per-preview token on every relayed message and cap the outer relay independently, so direct inner-frame messages cannot bypass the shared output limit.
+- Add no-referrer and explicit browser-permission restrictions to both preview frames while preserving the opaque-origin, no-same-origin sandbox boundary.
+- Use Obsidian's native DOM helpers in the plugin bundle and isolate standards-based DOM creation in the static-site adapter.
+- Add Chromium regressions proving that ReactDOM script-resource paths are rejected by CSP and that direct preview message floods produce one bounded truncation marker.
+
 ## 0.5.0
 
 - Replace the fixed IntelliJ/Darcula palette with Obsidian semantic theme tokens while keeping one shared component and runner implementation for Obsidian and static hosts.

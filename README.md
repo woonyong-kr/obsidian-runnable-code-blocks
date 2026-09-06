@@ -161,7 +161,7 @@ Code runs only after **Run** or the keyboard shortcut. Treat every runnable bloc
 - HTML and CSS render in an opaque sandboxed iframe. Their authored scripts remain blocked by a restrictive Content Security Policy; only the nonce-bound internal height reporter can run so the result can expand without an internal scrollbar. CSS is applied to a reusable card, button, and text specimen.
 - Interactive `run-web` documents may use inline HTML, CSS, and JavaScript inside a fresh opaque-origin iframe. `run-web-ts` transpiles `<script type="text/typescript">` blocks before using the same sandbox.
 - `run-react` transpiles a self-contained JSX or TSX module with Sucrase and mounts its default export with bundled React and ReactDOM. Only `react`, `react-dom`, and `react-dom/client` imports are available; no package is downloaded while running a note.
-- All interactive previews block Fetch/XHR/WebSocket calls, subresource loading, forms, popups, top navigation, objects, and same-origin access.
+- All interactive previews block Fetch/XHR/WebSocket calls, subresource loading, forms, popups, top navigation, objects, and same-origin access. A per-run token authenticates every relayed message, the outer frame enforces the same output cap independently, and both frame layers use a no-referrer policy.
 - Interactive DOM previews share Obsidian's renderer process. A script that blocks the event loop, such as `while (true) {}`, cannot be force-stopped by the plugin; close or reload the affected view and run only trusted examples.
 - Kotlin Playground, Wandbox, SwiftFiddle, and DartPad receive source only when their adapter is selected.
 - The Community Plugin does not access the filesystem, spawn local processes, install runtimes, or modify `PATH`.

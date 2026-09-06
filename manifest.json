@@ -1,7 +1,7 @@
 {
   "id": "runnable-code-blocks",
   "name": "Runnable Code Blocks",
-  "version": "0.5.0",
+  "version": "0.5.1",
   "minAppVersion": "1.13.0",
   "description": "Run 24 code-block fences, including React JSX and TSX, with theme-aware editors and no server.",
   "author": "Woonyong Choi",

@@ -16,7 +16,8 @@ const STATIC_CSP = [
   "media-src data: blob:",
   "object-src 'none'",
   "script-src 'none'",
-  "style-src 'unsafe-inline'"
+  "style-src 'unsafe-inline'",
+  "worker-src 'none'"
 ].join("; ");
 
 const INTERACTIVE_CSP = STATIC_CSP.replace("script-src 'none'", "script-src 'unsafe-inline'");

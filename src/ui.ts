@@ -1,5 +1,5 @@
 import type { RunnableBlockSpec, RunResult } from "./contracts";
-import { BoundedOutput } from "./output-buffer";
+import { BoundedOutput, OUTPUT_LIMITS } from "./output-buffer";
 import {
   createRunnableEditor,
   EDITOR_TRAILING_BLANK_LINE_COUNT,
@@ -317,6 +317,11 @@ function renderPreview(
   frame.className = "rcb__preview-frame";
   frame.dataset.scripts = preview.scripts;
   frame.setAttribute("sandbox", "allow-scripts");
+  frame.setAttribute("referrerpolicy", "no-referrer");
+  frame.setAttribute(
+    "allow",
+    "camera 'none'; display-capture 'none'; geolocation 'none'; microphone 'none'; payment 'none'; usb 'none'"
+  );
   frame.setAttribute("title", preview.scripts === "isolated" ? "Interactive code preview" : "Code preview");
   let rejectReady: (error: Error) => void = () => undefined;
   let resolveReady: () => void = () => undefined;
@@ -355,7 +360,7 @@ function renderPreview(
       }
       return;
     }
-    if (data.sender !== "runnable-code-blocks-preview") return;
+    if (data.sender !== "runnable-code-blocks-preview" || data.token !== token) return;
     if (data.type === "resize" && typeof data.height === "number") {
       const height = previewHeight(data.height);
       if (height !== undefined) frame.style.height = `${String(height)}px`;
@@ -383,12 +388,18 @@ function renderPreview(
 
 function previewContainerDocument(token: string): string {
   const serializedToken = JSON.stringify(token);
+  const entryLimit = String(OUTPUT_LIMITS.entries);
+  const characterLimit = String(OUTPUT_LIMITS.characters);
+  const truncationMarker = JSON.stringify(OUTPUT_LIMITS.marker);
   return `<!doctype html><html><head>
-<meta http-equiv="Content-Security-Policy" content="default-src 'none'; base-uri 'none'; connect-src 'none'; frame-src 'none'; img-src data: blob:; media-src data: blob:; object-src 'none'; script-src 'unsafe-inline'; style-src 'unsafe-inline'">
+<meta http-equiv="Content-Security-Policy" content="default-src 'none'; base-uri 'none'; connect-src 'none'; frame-src 'none'; img-src data: blob:; media-src data: blob:; object-src 'none'; script-src 'unsafe-inline'; style-src 'unsafe-inline'; worker-src 'none'">
 <style>html,body{border:0;margin:0;width:100%}#preview{border:0;display:block;min-height:1px;width:100%}</style>
 </head><body><script>
 (() => {
   const token = ${serializedToken};
+  const entryLimit = ${entryLimit};
+  const characterLimit = ${characterLimit};
+  const truncationMarker = ${truncationMarker};
   let preview = null;
   const minimumHeight = ${String(PREVIEW_HEIGHT_MINIMUM)};
   const maximumHeight = ${String(PREVIEW_HEIGHT_MAXIMUM)};
@@ -396,14 +407,27 @@ function previewContainerDocument(token: string): string {
     if (!Number.isFinite(value)) return null;
     return Math.min(maximumHeight, Math.max(minimumHeight, Math.ceil(value)));
   };
+  let entries = 0;
+  let characters = 0;
+  let relayClosed = false;
   addEventListener("message", (event) => {
     const data = event.data;
     if (event.source === parent && data?.sender === "runnable-code-blocks-host" && data.token === token) {
-      if (preview !== null || typeof data.html !== "string" || data.html.length > 2000000) return;
+      if (
+        preview !== null
+        || typeof data.html !== "string"
+        || data.html.length > 2000000
+        || (data.scripts !== "blocked" && data.scripts !== "isolated")
+      ) return;
       preview = document.createElement("iframe");
       preview.id = "preview";
       preview.title = data.scripts === "isolated" ? "Interactive code result" : "Code result";
       preview.setAttribute("sandbox", "allow-scripts");
+      preview.setAttribute("referrerpolicy", "no-referrer");
+      preview.setAttribute(
+        "allow",
+        "camera 'none'; display-capture 'none'; geolocation 'none'; microphone 'none'; payment 'none'; usb 'none'"
+      );
       preview.addEventListener("load", () => {
         parent.postMessage({ sender: "runnable-code-blocks-container", type: "preview-ready", token }, "*");
       }, { once: true });
@@ -417,11 +441,25 @@ function previewContainerDocument(token: string): string {
       const height = previewHeight(data.height);
       if (height === null) return;
       preview.style.height = height + "px";
-      parent.postMessage({ sender: data.sender, type: data.type, height }, "*");
+      parent.postMessage({ sender: data.sender, type: data.type, height, token }, "*");
       return;
     }
     if (!["error", "info", "log", "ready", "warn"].includes(data.type) || typeof data.message !== "string") return;
-    parent.postMessage({ sender: data.sender, type: data.type, message: data.message.slice(0, 16000) }, "*");
+    if (relayClosed) return;
+    const message = data.message.slice(0, 16000);
+    if (entries >= entryLimit || characters + message.length > characterLimit) {
+      relayClosed = true;
+      parent.postMessage({
+        sender: data.sender,
+        type: "warn",
+        message: truncationMarker,
+        token
+      }, "*");
+      return;
+    }
+    entries += 1;
+    characters += message.length;
+    parent.postMessage({ sender: data.sender, type: data.type, message, token }, "*");
   });
   parent.postMessage({ sender: "runnable-code-blocks-container", type: "ready", token }, "*");
 })();

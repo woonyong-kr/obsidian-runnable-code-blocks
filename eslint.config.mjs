@@ -35,9 +35,9 @@ export default tseslint.config(
     }
   },
   {
-    files: ["src/dom.ts"],
+    files: ["site/browser-dom-adapter.ts"],
     rules: {
-      // Shared browser/Obsidian code must not depend on Obsidian's prototype helpers.
+      // The static host does not provide Obsidian's prototype helpers.
       "obsidianmd/prefer-create-el": "off"
     }
   },

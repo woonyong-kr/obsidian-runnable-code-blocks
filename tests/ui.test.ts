@@ -412,6 +412,20 @@ describe("runnable block UI", () => {
       origin: "null",
       source: frame?.contentWindow
     }));
+    expect(frame?.style.height).toBe("");
+
+    const tokenSource = frame?.srcdoc.match(/const token = ("[^"]+");/u)?.[1];
+    expect(tokenSource).toBeDefined();
+    window.dispatchEvent(new MessageEvent("message", {
+      data: {
+        sender: "runnable-code-blocks-preview",
+        type: "resize",
+        height: 732,
+        token: JSON.parse(tokenSource ?? '""') as string
+      },
+      origin: "null",
+      source: frame?.contentWindow
+    }));
 
     expect(frame?.style.height).toBe("732px");
     expect(frame?.srcdoc).toContain("preview.style.height = height + \"px\"");

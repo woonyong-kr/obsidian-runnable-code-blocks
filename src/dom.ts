@@ -3,10 +3,31 @@ export interface ElementOptions {
   text?: string;
 }
 
-function ownerDocument(parent: Node): Document {
-  return parent.nodeType === Node.DOCUMENT_NODE
-    ? parent as Document
-    : parent.ownerDocument ?? document;
+export interface DomAdapter {
+  appendElement<K extends keyof HTMLElementTagNameMap>(
+    parent: Node,
+    name: K,
+    options?: ElementOptions
+  ): HTMLElementTagNameMap[K];
+  appendSvgElement<K extends keyof SVGElementTagNameMap>(
+    parent: Node,
+    name: K,
+    className?: string
+  ): SVGElementTagNameMap[K];
+}
+
+const OBSIDIAN_DOM_ADAPTER: DomAdapter = {
+  appendElement: (parent, name, options = {}) => parent.createEl(name, {
+    cls: options.className,
+    text: options.text
+  }),
+  appendSvgElement: (parent, name, className) => parent.createSvg(name, { cls: className })
+};
+
+let activeDomAdapter = OBSIDIAN_DOM_ADAPTER;
+
+export function configureDomAdapter(adapter: DomAdapter): void {
+  activeDomAdapter = adapter;
 }
 
 export function appendElement<K extends keyof HTMLElementTagNameMap>(
@@ -14,11 +35,7 @@ export function appendElement<K extends keyof HTMLElementTagNameMap>(
   name: K,
   options: ElementOptions = {}
 ): HTMLElementTagNameMap[K] {
-  const element = ownerDocument(parent).createElement(name);
-  if (options.className !== undefined) element.className = options.className;
-  if (options.text !== undefined) element.textContent = options.text;
-  parent.appendChild(element);
-  return element;
+  return activeDomAdapter.appendElement(parent, name, options);
 }
 
 export function appendSvgElement<K extends keyof SVGElementTagNameMap>(
@@ -26,8 +43,5 @@ export function appendSvgElement<K extends keyof SVGElementTagNameMap>(
   name: K,
   className?: string
 ): SVGElementTagNameMap[K] {
-  const element = ownerDocument(parent).createElementNS("http://www.w3.org/2000/svg", name);
-  if (className !== undefined) element.setAttribute("class", className);
-  parent.appendChild(element);
-  return element;
+  return activeDomAdapter.appendSvgElement(parent, name, className);
 }

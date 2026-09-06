@@ -1,8 +1,11 @@
 import { createRunnerRegistry } from "../src/runner-composition";
-import { appendElement } from "../src/dom";
+import { appendElement, configureDomAdapter } from "../src/dom";
 import { LANGUAGE_EXAMPLES } from "../src/language-examples";
 import { SUPPORTED_LANGUAGES } from "../src/supported-languages";
 import { enhanceRunnableCodeBlocks } from "../src/web-adapter";
+import { BROWSER_DOM_ADAPTER } from "./browser-dom-adapter";
+
+configureDomAdapter(BROWSER_DOM_ADAPTER);
 
 const languageList = document.querySelector<HTMLElement>("[data-supported-languages]");
 const languageCount = document.querySelector<HTMLElement>("[data-supported-language-count]");
