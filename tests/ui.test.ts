@@ -50,17 +50,21 @@ describe("runnable block UI", () => {
 
   it("cancels a pending run and ignores a late successful result", async () => {
     let finish!: (result: RunResult) => void;
+    const result = new Promise<RunResult>(resolve => { finish = resolve; });
+    const run = vi.fn(() => result);
     const host = document.body.appendChild(document.createElement("div"));
-    mountRunnableBlock(host, { code: "source", language: "javascript", runner: createRunner({ run: async () => await new Promise(resolve => { finish = resolve; }) }) });
+    mountRunnableBlock(host, { code: "source", language: "javascript", runner: createRunner({ run }) });
     await vi.waitFor(() => expect(host.querySelector<HTMLButtonElement>('.rcb__button--run')?.disabled).toBe(false));
     host.querySelector<HTMLButtonElement>('.rcb__button--run')?.click();
-    await vi.waitFor(() => expect(finish).toBeDefined());
+    await vi.waitFor(() => expect(run).toHaveBeenCalledOnce());
     const stop = host.querySelector<HTMLButtonElement>('.rcb__button--stop');
     expect(stop?.hidden).toBe(false);
     stop?.click();
     expect(host.querySelector('.rcb')?.getAttribute('data-state')).toBe('cancelled');
     finish({ durationMs: 1, exitCode: 0, stdout: 'stale', stderr: '' });
-    await vi.waitFor(() => expect(host.querySelector<HTMLButtonElement>('.rcb__button--run')?.disabled).toBe(false));
+    await result;
+    expect(host.querySelector('.rcb')?.getAttribute('data-state')).toBe('cancelled');
+    expect(host.querySelector<HTMLButtonElement>('.rcb__button--run')?.disabled).toBe(false);
     expect(host.querySelector('.rcb__output')?.textContent).not.toContain('stale');
   });
   it("renders numbered trailing lines and disposes the mounted block", async () => {
