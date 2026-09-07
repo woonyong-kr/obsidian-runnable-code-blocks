@@ -6,6 +6,7 @@ import {
   type RunnableEditor
 } from "./editor";
 import { appendElement, appendSvgElement } from "./dom";
+import { ProviderUnavailableError } from "./runners/provider-errors";
 
 export interface MountedRunnableBlock {
   dispose(): void;
@@ -238,6 +239,13 @@ export function mountRunnableBlock(host: HTMLElement, spec: RunnableBlockSpec): 
       }
     } catch (error) {
       if (lifecycle.disposed) return;
+      if (error instanceof ProviderUnavailableError && error.executionState === "not-started") {
+        available = false;
+        availabilityDetail = error.message;
+        consolePanel.hidden = true;
+        applyAvailabilityState();
+        return;
+      }
       root.dataset.state = "error";
       status.textContent = "Runner error";
       consoleMeta.textContent = "Runner error";

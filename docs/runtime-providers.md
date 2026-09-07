@@ -13,7 +13,7 @@ Markdown fence
   → one execution result
 ```
 
-- Static web and Obsidian compose the same remote and browser-native adapters.
+- Static web and Obsidian compose the same remote and browser-native adapters. A static host may additionally opt into a project-owned personal compiler gateway without exposing the authenticated localhost companion.
 - New Obsidian installs default to `private-first`: browser, optional local companion, then remote. Existing remote-first settings remain valid; the static adapter stays remote-first because it has no local companion.
 - A compile error, runtime exception, non-zero exit, or empty stdout is a completed execution result and never triggers fallback.
 
@@ -41,6 +41,7 @@ This conservative boundary prevents a remote timeout, lost connection, or ambigu
 | `typescript-runner.ts` | TypeScript | Bundled TypeScript transpiler → fresh Web Worker |
 | `browser-preview-runner.ts` | HTML, CSS, Web, Web TypeScript, React JSX/TSX | Static or interactive sandboxed iframe with restrictive CSP; React and ReactDOM are bundled at build time |
 | `local-companion-runner.ts` | Python, SQL, Kotlin, Java, C, C++, Go, Rust, C#, Swift, Ruby, PHP, R, Scala, Dart, Lua, Shell | Authenticated `127.0.0.1` companion; source remains on the desktop |
+| `personal-compiler-runner.ts` | Same explicitly prepared container languages | HTTPS static-site gateway; exact Origin/Host allowlist, quotas, idempotency, and sanitized results |
 
 External providers are public services, not project infrastructure. They may change endpoints, compiler names, CORS, limits, or availability without a release from this project. They provide convenience execution, not an uptime guarantee. DartPad's old arbitrary-code embed protocol is not used; its supported compile API and execution frame are separate adapter steps.
 
@@ -49,6 +50,8 @@ External providers are public services, not project infrastructure. They may cha
 The Community Plugin does not download an SDK, package manager, compiler, interpreter, or daemon. Plugin runtime source does not access the filesystem, spawn child processes, mutate `PATH`, or write outside the Obsidian vault. The separately downloaded companion owns all process execution, remains disabled by default, binds only to loopback, and requires an Obsidian SecretStorage token.
 
 The companion accepts source text only and never accepts a host path. It runs explicitly prepared digest-pinned images as non-root with a read-only root filesystem, temporary writable work directory, disabled network, dropped capabilities, and CPU, memory, PID, execution-time, concurrency, source-size, and output limits. It never installs a compiler into the host or changes the host `PATH`.
+
+The optional public gateway is a separate process and protocol boundary. It has no browser-visible bearer token, accepts only configured static-site origins, and must remain on loopback behind a dedicated outbound tunnel. It shares the sandboxed container engine but never publishes the private companion endpoint or returns image digests. Its request UUID makes one transport retry idempotent; capacity and rate-limit rejections are known not to have started execution.
 
 ## Adapter maintenance contract
 

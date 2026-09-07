@@ -207,7 +207,7 @@ The browser adapter recognizes ordinary rendered Markdown:
 <pre><code class="language-run-python">print("Hello")</code></pre>
 ```
 
-It shares the fence parser, language catalog, runner composition, editor, and output UI with the Obsidian plugin. The public site never connects to the maintainer's local runner: it uses browser-native and named remote adapters only. No API key, database, Vercel function, Supabase project, or project-owned cloud backend is required. The deployed adapter is available as a [live 24-fence demo](https://woonyong-kr.github.io/obsidian-runnable-code-blocks/).
+It shares the fence parser, language catalog, runner composition, editor, and output UI with the Obsidian plugin. A static host can use browser-native and named remote adapters only, or explicitly configure the separate personal-compiler gateway for prepared container languages. The gateway never exposes the authenticated localhost companion and can be offline without disabling JavaScript, TypeScript, HTML, CSS, Web, Web TypeScript, or React examples. The deployed adapter is available as a [live 24-fence demo](https://woonyong-kr.github.io/obsidian-runnable-code-blocks/).
 
 ## Architecture and maintenance
 
@@ -216,6 +216,7 @@ Provider-specific change is isolated from the stable UI and Markdown contract:
 - `src/supported-languages.ts` is the public support catalog and exact fence map;
 - `src/runner-composition.ts` defines provider order and fallback composition;
 - `src/runners/local-companion-runner.ts` owns the authenticated loopback protocol;
+- `src/runners/personal-compiler-runner.ts` owns the optional HTTPS static-site gateway protocol and its planned-offline UX;
 - `local-runner/src/` owns the standalone HTTP boundary and container engine without entering the Community Plugin bundle;
 - `src/runners/*-runner.ts` owns third-party URLs, request bodies, compiler selection, and response parsing;
 - `src/contracts.ts` owns the portable fence and execution-result contracts;

@@ -86,8 +86,42 @@ describe("runner composition", () => {
       localRunnerToken: "test-token-with-32-safe-characters"
     });
 
+    await expect(runner.availability()).resolves.toMatchObject({ available: true });
     await expect(runner.run("class Main {}"))
       .resolves.toMatchObject({ environment: "local", stdout: "local-ok\n" });
+    expect(fetch_).toHaveBeenCalledTimes(2);
+  });
+
+  it("uses the public personal compiler without enabling third-party providers", async () => {
+    const java = supportedLanguage("java");
+    if (java === null) throw new Error("java missing");
+    const fetch_ = vi.fn()
+      .mockResolvedValueOnce(new Response(JSON.stringify({
+        languages: ["java"],
+        protocolVersion: 1,
+        runnerVersion: "0.1.0",
+        service: "personal-compiler",
+        status: "online"
+      })))
+      .mockResolvedValueOnce(new Response(JSON.stringify({
+        durationMs: 8,
+        exitCode: 0,
+        language: "java",
+        provider: "Woon personal compiler · java",
+        stderr: "",
+        stdout: "public-ok\n"
+      })));
+    const runner = composeLanguageRunner(java, {
+      executionOrder: "private-first",
+      fetch: fetch_ as typeof fetch,
+      personalCompilerEnabled: true,
+      personalCompilerEndpoint: "https://runner.woonyong.com",
+      remoteExecutionEnabled: false
+    });
+
+    await expect(runner.availability()).resolves.toMatchObject({ available: true });
+    await expect(runner.run("class Main {}"))
+      .resolves.toMatchObject({ environment: "remote", stdout: "public-ok\n" });
     expect(fetch_).toHaveBeenCalledTimes(2);
   });
 

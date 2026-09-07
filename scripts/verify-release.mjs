@@ -47,6 +47,7 @@ const requiredAdapters = [
   "src/runners/javascript-runner.ts",
   "src/runners/kotlin-playground-runner.ts",
   "src/runners/local-companion-runner.ts",
+  "src/runners/personal-compiler-runner.ts",
   "src/runners/swiftfiddle-runner.ts",
   "src/runners/typescript-runner.ts",
   "src/runners/wandbox-runner.ts"
@@ -57,6 +58,7 @@ const approvedOrigins = new Set([
   "http://localhost",
   "https://api.kotlinlang.org",
   "https://dartpad.dev",
+  "https://runner.woonyong.com",
   "https://runner.swift-playground.com",
   "https://stable.api.dartpad.dev",
   "https://wandbox.org"

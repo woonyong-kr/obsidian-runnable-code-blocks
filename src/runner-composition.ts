@@ -6,6 +6,7 @@ import { FallbackRunner } from "./runners/fallback-runner";
 import type { FetchLike } from "./runners/http-client";
 import { BrowserJavaScriptRunner } from "./runners/javascript-runner";
 import { LocalCompanionRunner } from "./runners/local-companion-runner";
+import { PersonalCompilerRunner } from "./runners/personal-compiler-runner";
 import { BrowserTypeScriptRunner } from "./runners/typescript-runner";
 import { ProviderUnavailableError } from "./runners/provider-errors";
 import {
@@ -22,6 +23,8 @@ export interface RunnerCompositionOptions {
   localExecutionEnabled?: boolean;
   localRunnerEndpoint?: string;
   localRunnerToken?: string;
+  personalCompilerEnabled?: boolean;
+  personalCompilerEndpoint?: string;
   remoteExecutionEnabled?: boolean;
 }
 
@@ -101,6 +104,8 @@ function samePolicy(left: RunnerCompositionOptions, right: RunnerCompositionOpti
     left.localExecutionEnabled === right.localExecutionEnabled &&
     left.localRunnerEndpoint === right.localRunnerEndpoint &&
     left.localRunnerToken === right.localRunnerToken &&
+    left.personalCompilerEnabled === right.personalCompilerEnabled &&
+    left.personalCompilerEndpoint === right.personalCompilerEndpoint &&
     left.remoteExecutionEnabled === right.remoteExecutionEnabled;
 }
 
@@ -118,7 +123,18 @@ export function composeLanguageRunner(
         token: options.localRunnerToken ?? ""
       })
     : null;
-  const privateRunners = [...browser, ...(local === null ? [] : [local])];
+  const personalCompiler = options.personalCompilerEnabled === true && language.localAdapter !== undefined
+    ? new PersonalCompilerRunner({
+        endpoint: options.personalCompilerEndpoint ?? "https://runner.woonyong.com",
+        fetch: options.fetch,
+        language: language.id
+      })
+    : null;
+  const privateRunners = [
+    ...browser,
+    ...(local === null ? [] : [local]),
+    ...(personalCompiler === null ? [] : [personalCompiler])
+  ];
   const ordered = options.executionOrder === "private-first"
     ? [...privateRunners, ...(remote === null ? [] : [remote])]
     : [...(remote === null ? [] : [remote]), ...privateRunners];

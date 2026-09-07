@@ -5,7 +5,7 @@ import { CONTAINER_PROFILES, type ContainerProfile } from "./profiles";
 
 const exec = promisify(execFile);
 const OUTPUT_LIMIT = 64_000;
-const TIMEOUT_MS = 10_000;
+const TIMEOUT_MS = 15_000;
 
 export interface EngineResult {
   durationMs: number;
@@ -93,6 +93,8 @@ export function containerArguments(name: string, profile: ContainerProfile): str
     "--cap-drop", "ALL",
     "--security-opt", "no-new-privileges",
     "--pids-limit", "64",
+    "--ulimit", "nofile=64:64",
+    "--ulimit", "nproc=64:64",
     "--cpus", "1",
     "--memory", "512m",
     "--memory-swap", "512m",
