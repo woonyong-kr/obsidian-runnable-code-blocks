@@ -18,7 +18,6 @@ const profiles = [
   profile("ruby", "docker.io/library/ruby@sha256:c5a5064d190055633011c03aa800170cc36945ff3afb5f6c915329f92d6f1e00", "ruby -"),
   profile("php", "docker.io/library/php@sha256:2f389f933c3cc58cc622bd243bb4ecff7e6553e2de4387a239bca640c988be19", "php"),
   profile("r", "docker.io/library/r-base@sha256:fa1972f31def171b83e0911e947ab8b57db143f0fc8a67af4c0d5ac329041646", "Rscript -"),
-  profile("scala", "docker.io/sbtscala/scala-sbt@sha256:4d2e914940aa5d56b2f61e665449ad4d5f5531ac3e7be7b0cee8574163fc44f7", "cat > Main.scala; scalac -d . Main.scala; scala -classpath . Main"),
   profile("dart", "docker.io/library/dart@sha256:7e57e61d97813dc57dd0801656ff4d5c5efafa47bae563a681571543ad30f199", "cat > main.dart; dart run main.dart"),
   profile("lua", "docker.io/nickblah/lua@sha256:d2f20d6ec71f987f79ca0f25d5d9a2b3620f97db179f9a2b8f2177c3330952f9", "lua -"),
   profile("shell", "docker.io/library/alpine@sha256:14358309a308569c32bdc37e2e0e9694be33a9d99e68afb0f5ff33cc1f695dce", "sh -s")

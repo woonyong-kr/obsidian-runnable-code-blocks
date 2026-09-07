@@ -1,5 +1,14 @@
 # Changelog
 
+## 0.7.0
+
+- Add a separate, opt-in public personal-compiler gateway for static sites, with exact Host and Origin checks, per-client and global quotas, concurrency control, idempotent request IDs, and sanitized responses.
+- Keep the authenticated localhost companion private while allowing a dedicated outbound tunnel to publish only the hardened gateway; static clients explain planned personal-server downtime instead of presenting a provider error.
+- Let static sites configure the personal compiler through one reusable web-runner adapter instead of duplicating provider policy in each renderer.
+- Extend isolated container executions to a 15-second ceiling and cap open files and processes in addition to the existing network, filesystem, privilege, CPU, memory, PID, source, and output boundaries.
+- Raise the open-file limit enough for the .NET SDK to start while preserving every other sandbox boundary.
+- Remove the non-working Scala container claim: the official sbt image does not bundle the standalone `scala` or `scalac` CLI, so Scala remains available through its named remote provider until a verified offline image is added.
+
 ## 0.6.0
 
 - Add an opt-in localhost companion for 17 native and interpreted languages while preserving the existing browser and remote adapters and the portable `run-<language>` Markdown contract.
@@ -7,9 +16,6 @@
 - Run local code in explicitly prepared, digest-pinned containers with no network, a read-only root filesystem, non-root UID, dropped capabilities, and CPU, memory, PID, time, source-size, concurrency, and output limits.
 - Make private-first the safe default for new installs: browser-native execution wins where available, then the local companion, then an enabled remote provider. Preserve remote-first for existing settings that selected it.
 - Package the standalone Node.js 22 companion as a release asset and document targeted image preparation so the complete multi-language toolchain is never downloaded silently.
-- Add a separate, opt-in public personal-compiler gateway for static sites, with exact Host and Origin checks, per-client and global quotas, concurrency control, idempotent request IDs, and sanitized responses.
-- Keep the authenticated localhost companion private while allowing a dedicated outbound tunnel to publish only the hardened gateway; static clients explain planned personal-server downtime instead of presenting a provider error.
-- Extend isolated container executions to a 15-second ceiling and cap open files and processes in addition to the existing network, filesystem, privilege, CPU, memory, PID, source, and output boundaries.
 
 ## 0.5.1
 

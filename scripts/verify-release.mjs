@@ -149,7 +149,7 @@ if (!localRunnerSource.includes('"--security-opt", "no-new-privileges"')) {
   errors.push("local runner must set no-new-privileges");
 }
 const pinnedImages = [...localRunnerSource.matchAll(/(?:docker\.io|mcr\.microsoft\.com)\/[a-z0-9./-]+@sha256:[0-9a-f]{64}/gu)];
-if (pinnedImages.length !== 17) errors.push("local runner must define exactly 17 digest-pinned language profiles");
+if (pinnedImages.length !== 16) errors.push("local runner must define exactly 16 digest-pinned language profiles");
 if (/\b(?:0\.0\.0\.0|::)\b/u.test(localRunnerSource)) errors.push("local runner must not bind to a wildcard address");
 
 if (errors.length) throw new Error(errors.join("\n"));

@@ -1,7 +1,7 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
 import type { CodeRunner } from "../src/contracts";
 import { RunnerRegistry } from "../src/runner-registry";
-import { enhanceRunnableCodeBlocks } from "../src/web-adapter";
+import { createStaticWebRunnerRegistry, enhanceRunnableCodeBlocks } from "../src/web-adapter";
 
 function successfulRunner(language: string): CodeRunner {
   return {
@@ -17,6 +17,41 @@ afterEach(() => {
 });
 
 describe("web adapter", () => {
+  it("keeps the optional personal compiler in reusable adapter configuration", async () => {
+    const fetch_ = vi.fn()
+      .mockResolvedValueOnce(new Response(JSON.stringify({
+        languages: ["java"],
+        protocolVersion: 1,
+        runnerVersion: "0.1.0",
+        service: "personal-compiler",
+        status: "online"
+      })))
+      .mockResolvedValueOnce(new Response(JSON.stringify({
+        durationMs: 4,
+        exitCode: 0,
+        language: "java",
+        provider: "Personal compiler · java",
+        stderr: "",
+        stdout: "42\n"
+      })));
+    const registry = createStaticWebRunnerRegistry({
+      fetch: fetch_ as typeof fetch,
+      personalCompilerEndpoint: "https://runner.example.com",
+      remoteExecutionEnabled: false
+    });
+    const runner = registry.create("java");
+
+    await expect(runner?.availability()).resolves.toMatchObject({ available: true });
+    await expect(runner?.run("class Main {}")).resolves.toMatchObject({ stdout: "42\n" });
+  });
+
+  it("rejects an invalid personal compiler endpoint before mounting blocks", () => {
+    expect(() => createStaticWebRunnerRegistry({
+      fetch: window.fetch.bind(window),
+      personalCompilerEndpoint: "http://runner.example.com"
+    })).toThrow("HTTPS");
+  });
+
   it("enhances only run-language fences from standard Markdown HTML", async () => {
     document.body.innerHTML = `
       <pre><code class="language-run-javascript">console.log("Hello")</code></pre>

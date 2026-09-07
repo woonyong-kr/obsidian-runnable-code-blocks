@@ -14,7 +14,7 @@ The full remote sample sweep passed for all 18 CLI-backed language samples on 20
 - fresh-build Chromium E2E checks for editing and Reset, React interaction, host theme tokens, keyboard focus, the 102/103-line scroll boundary, preview navigation containment, ReactDOM script-resource CSP rejection, bounded direct preview relays, and real Worker output truncation;
 - coverage exceeds the enforced 80% statement/line, 70% branch, and 75% function thresholds;
 - both production bundles remain below the reviewed 5 MB release ceiling;
-- release-policy check: 24 runnable fences, 9 plugin adapters, and 17 digest-pinned local container profiles;
+- release-policy check: 24 runnable fences, 9 plugin adapters, and 16 digest-pinned local container profiles;
 - npm package dry run contains only the 7 declared release files.
 
 Additional repository checks passed:

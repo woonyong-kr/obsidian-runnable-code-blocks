@@ -14,7 +14,7 @@ Markdown fence
 ```
 
 - Static web and Obsidian compose the same remote and browser-native adapters. A static host may additionally opt into a project-owned personal compiler gateway without exposing the authenticated localhost companion.
-- New Obsidian installs default to `private-first`: browser, optional local companion, then remote. Existing remote-first settings remain valid; the static adapter stays remote-first because it has no local companion.
+- New Obsidian installs default to `private-first`: browser, optional local companion, then remote. Existing remote-first settings remain valid; static hosts use the reusable web adapter to add an explicitly configured personal compiler before remote providers.
 - A compile error, runtime exception, non-zero exit, or empty stdout is a completed execution result and never triggers fallback.
 
 ## Fallback state machine
@@ -40,7 +40,7 @@ This conservative boundary prevents a remote timeout, lost connection, or ambigu
 | `javascript-runner.ts` | JavaScript | Fresh local Web Worker |
 | `typescript-runner.ts` | TypeScript | Bundled TypeScript transpiler → fresh Web Worker |
 | `browser-preview-runner.ts` | HTML, CSS, Web, Web TypeScript, React JSX/TSX | Static or interactive sandboxed iframe with restrictive CSP; React and ReactDOM are bundled at build time |
-| `local-companion-runner.ts` | Python, SQL, Kotlin, Java, C, C++, Go, Rust, C#, Swift, Ruby, PHP, R, Scala, Dart, Lua, Shell | Authenticated `127.0.0.1` companion; source remains on the desktop |
+| `local-companion-runner.ts` | Python, SQL, Kotlin, Java, C, C++, Go, Rust, C#, Swift, Ruby, PHP, R, Dart, Lua, Shell | Authenticated `127.0.0.1` companion; source remains on the desktop |
 | `personal-compiler-runner.ts` | Same explicitly prepared container languages | HTTPS static-site gateway; exact Origin/Host allowlist, quotas, idempotency, and sanitized results |
 
 External providers are public services, not project infrastructure. They may change endpoints, compiler names, CORS, limits, or availability without a release from this project. They provide convenience execution, not an uptime guarantee. DartPad's old arbitrary-code embed protocol is not used; its supported compile API and execution frame are separate adapter steps.

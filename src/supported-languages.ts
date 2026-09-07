@@ -43,7 +43,7 @@ export const SUPPORTED_LANGUAGES = [
   language({ id: "ruby", label: "Ruby", runtime: "Wandbox", localAdapter: "companion", remoteAdapter: "wandbox", wandboxLanguage: "Ruby" }),
   language({ id: "php", label: "PHP", runtime: "Wandbox", localAdapter: "companion", remoteAdapter: "wandbox", wandboxLanguage: "PHP" }),
   language({ id: "r", label: "R", runtime: "Wandbox", localAdapter: "companion", remoteAdapter: "wandbox", wandboxLanguage: "R" }),
-  language({ id: "scala", label: "Scala", runtime: "Wandbox", localAdapter: "companion", remoteAdapter: "wandbox", wandboxLanguage: "Scala" }),
+  language({ id: "scala", label: "Scala", runtime: "Wandbox", remoteAdapter: "wandbox", wandboxLanguage: "Scala" }),
   language({ id: "dart", label: "Dart", runtime: "DartPad compile → isolated frame", localAdapter: "companion", remoteAdapter: "dartpad" }),
   language({ id: "lua", label: "Lua", runtime: "Wandbox", localAdapter: "companion", remoteAdapter: "wandbox", wandboxLanguage: "Lua" }),
   language({ id: "shell", label: "Shell", runtime: "Wandbox", localAdapter: "companion", remoteAdapter: "wandbox", wandboxLanguage: "Bash script" })

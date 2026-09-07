@@ -24,10 +24,10 @@
 
 ![Runnable Code Blocks showing Kotlin and JavaScript editors in a sharp 16:9 Obsidian capture.](docs/assets/runnable-code-blocks-preview.png)
 
-Runnable Code Blocks keeps the explanation, the experiment, and the result in one note. Readers edit a temporary copy, press **Run**, and see exactly which browser or public provider produced the output; the Markdown source stays portable and unchanged.
+Runnable Code Blocks keeps the explanation, the experiment, and the result in one note. Readers edit a temporary copy, press **Run**, and see exactly which browser, isolated container, or named public provider produced the output; the Markdown source stays portable and unchanged.
 
 - **24 exact runnable fences** — 21 programming languages plus interactive JavaScript, TypeScript, and React documents.
-- **No cloud runner to operate** — browser-native runners and named public providers work immediately; Obsidian Desktop can opt into a private localhost companion.
+- **Graceful provider fallback** — browser-native runners work immediately; prepared container languages can use a private localhost companion or an explicitly configured personal compiler before named public providers.
 - **Portable Markdown** — the document stores ordinary `run-<language>` fences instead of plugin-specific state.
 - **Disposable editing** — change and run a sample freely; **Reset** or reopening the rendered note restores the Markdown source.
 - **Visible execution boundaries** — every result names the browser or third-party provider that actually ran it.
@@ -38,7 +38,7 @@ Runnable Code Blocks keeps the explanation, the experiment, and the result in on
 | --- | --- |
 | Learn beside an explanation | Replaces `run-<language>` fences with temporary editable runners in Reading view |
 | Keep Markdown portable | Stores only ordinary fenced code in the note; editor state and output are disposable |
-| Avoid hosting a cloud backend | Uses seven browser-native fences, an optional local container companion, and named public providers |
+| Avoid provider-only outages | Uses seven browser-native fences, optional isolated containers, and named public providers behind one fallback contract |
 | Publish the same lesson | Shares the parser, catalog, runner composition, editor, and output UI with the static adapter |
 | Understand the trust boundary | Labels the selected provider before execution and keeps remote execution configurable |
 
@@ -122,7 +122,7 @@ The UI follows the active Obsidian theme through semantic interface and `--code-
 
 ## Supported languages
 
-Version 0.6.0 defines the following stable fences. “Local” means the optional desktop companion can execute it after its image is explicitly prepared. “Remote” means source is sent to the named provider; this project does not operate a public execution server.
+Version 0.7.0 defines the following stable fences. “Local” means the optional desktop companion can execute it after its image is explicitly prepared. “Personal compiler” means a static-site owner explicitly configured a separate HTTPS gateway; “Remote” means source is sent to the named public provider.
 
 | Fence | Browser/static runtime | Optional local runner |
 | --- | --- | --- |
@@ -146,7 +146,7 @@ Version 0.6.0 defines the following stable fences. “Local” means the optiona
 | `run-ruby` | Wandbox | Ruby container |
 | `run-php` | Wandbox | PHP container |
 | `run-r` | Wandbox | R container |
-| `run-scala` | Wandbox | Scala container |
+| `run-scala` | Wandbox | — |
 | `run-dart` | DartPad compile → isolated frame | Dart container |
 | `run-lua` | Wandbox | Lua container |
 | `run-shell` | Wandbox | Alpine `sh` container |
@@ -207,7 +207,7 @@ The browser adapter recognizes ordinary rendered Markdown:
 <pre><code class="language-run-python">print("Hello")</code></pre>
 ```
 
-It shares the fence parser, language catalog, runner composition, editor, and output UI with the Obsidian plugin. A static host can use browser-native and named remote adapters only, or explicitly configure the separate personal-compiler gateway for prepared container languages. The gateway never exposes the authenticated localhost companion and can be offline without disabling JavaScript, TypeScript, HTML, CSS, Web, Web TypeScript, or React examples. The deployed adapter is available as a [live 24-fence demo](https://woonyong-kr.github.io/obsidian-runnable-code-blocks/).
+It shares the fence parser, language catalog, runner composition, editor, and output UI with the Obsidian plugin. A static host can use browser-native and named remote adapters only, or explicitly configure the separate personal-compiler gateway for prepared container languages. The reusable `createStaticWebRunnerRegistry` adapter keeps that provider policy outside the renderer, so another Wiki can supply its own endpoint without forking the editor or runner code. The gateway never exposes the authenticated localhost companion and can be offline without disabling JavaScript, TypeScript, HTML, CSS, Web, Web TypeScript, or React examples. The deployed adapter is available as a [live 24-fence demo](https://woonyong-kr.github.io/obsidian-runnable-code-blocks/).
 
 ## Architecture and maintenance
 
@@ -227,7 +227,7 @@ When a public provider changes, its adapter can be repaired and released without
 
 ## Installation and compatibility
 
-Install from **Settings → Community plugins → Browse → Runnable Code Blocks**. Version 0.6.0 supports Obsidian 1.13.0 or later on desktop and mobile. Local container execution is desktop-only and opt-in; all other adapters keep their existing platform support.
+Install from **Settings → Community plugins → Browse → Runnable Code Blocks**. Version 0.7.0 supports Obsidian 1.13.0 or later on desktop and mobile. Local container execution is desktop-only and opt-in; all other adapters keep their existing platform support.
 
 For a manual release install, download `main.js`, `manifest.json`, and `styles.css` from the [latest release](https://github.com/woonyong-kr/obsidian-runnable-code-blocks/releases/latest) into `.obsidian/plugins/runnable-code-blocks/`, then reload Obsidian.
 

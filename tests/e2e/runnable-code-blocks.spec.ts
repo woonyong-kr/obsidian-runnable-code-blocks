@@ -114,6 +114,57 @@ location.href = "/preview-navigation-should-not-load";
   expect(escapedRequests).toEqual([]);
 });
 
+test("uses the configured personal compiler before Wandbox for Java", async ({ page }) => {
+  const wandboxRequests: string[] = [];
+  await page.route("https://runner.woonyong.com/v1/capabilities", async (route) => {
+    await route.fulfill({
+      contentType: "application/json",
+      json: {
+        languages: ["java"],
+        protocolVersion: 1,
+        runnerVersion: "0.1.0",
+        service: "personal-compiler",
+        status: "online"
+      }
+    });
+  });
+  await page.route("https://runner.woonyong.com/v1/run", async (route) => {
+    const payload = route.request().postDataJSON() as { language?: string };
+    expect(payload.language).toBe("java");
+    expect(route.request().headers()["x-runnable-request-id"]).toMatch(/^[0-9a-f-]{36}$/iu);
+    await route.fulfill({
+      contentType: "application/json",
+      json: {
+        durationMs: 18,
+        exitCode: 0,
+        language: "java",
+        provider: "Woon personal compiler · java",
+        stderr: "",
+        stdout: "personal-java-ok\n"
+      }
+    });
+  });
+  await page.route("https://wandbox.org/**", async (route) => {
+    if (route.request().url().endsWith("/compile.json")) {
+      wandboxRequests.push(route.request().url());
+    }
+    await route.abort();
+  });
+
+  await page.goto("/");
+  await page.getByText("Run every language example").click();
+  const lesson = page.locator(".rcb-site__lesson", {
+    has: page.getByRole("heading", { exact: true, name: /Java ·/u })
+  });
+  const runButton = lesson.getByRole("button", { name: "Run code" });
+  await expect(runButton).toBeEnabled();
+  await runButton.click();
+
+  await expect(lesson.locator(".rcb__output")).toContainText("personal-java-ok");
+  await expect(lesson.locator(".rcb__console-meta")).toContainText("Woon personal compiler · java");
+  expect(wandboxRequests).toEqual([]);
+});
+
 test("blocks ReactDOM script resources inside the opaque preview", async ({ page }) => {
   const attemptedRequests: string[] = [];
   const failedRequests: string[] = [];

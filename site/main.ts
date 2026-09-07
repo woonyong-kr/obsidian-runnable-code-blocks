@@ -1,8 +1,7 @@
-import { createRunnerRegistry } from "../src/runner-composition";
 import { appendElement, configureDomAdapter } from "../src/dom";
 import { LANGUAGE_EXAMPLES } from "../src/language-examples";
 import { SUPPORTED_LANGUAGES } from "../src/supported-languages";
-import { enhanceRunnableCodeBlocks } from "../src/web-adapter";
+import { createStaticWebRunnerRegistry, enhanceRunnableCodeBlocks } from "../src/web-adapter";
 import { BROWSER_DOM_ADAPTER } from "./browser-dom-adapter";
 
 configureDomAdapter(BROWSER_DOM_ADAPTER);
@@ -38,9 +37,9 @@ if (testCases !== null) {
   }
 }
 
-const registry = createRunnerRegistry({
-  executionOrder: "remote-first",
+const registry = createStaticWebRunnerRegistry({
   fetch: window.fetch.bind(window),
+  personalCompilerEndpoint: document.documentElement.dataset.personalCompilerEndpoint,
   remoteExecutionEnabled: true
 });
 
