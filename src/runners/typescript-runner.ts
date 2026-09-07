@@ -1,13 +1,12 @@
-import { getVersion, transform } from "sucrase";
 import type { CodeRunner, RunContext, RunResult } from "../contracts";
 import { BrowserJavaScriptRunner } from "./javascript-runner";
 
 export class BrowserTypeScriptRunner implements CodeRunner {
   readonly environment = "browser" as const;
   readonly language = "typescript";
-  readonly #javascript: Pick<CodeRunner, "availability" | "run">;
+  readonly #javascript: Pick<CodeRunner, "availability" | "run" | "dispose">;
 
-  constructor(javascript: Pick<CodeRunner, "availability" | "run"> = new BrowserJavaScriptRunner()) {
+  constructor(javascript: Pick<CodeRunner, "availability" | "run" | "dispose"> = new BrowserJavaScriptRunner()) {
     this.#javascript = javascript;
   }
 
@@ -15,7 +14,11 @@ export class BrowserTypeScriptRunner implements CodeRunner {
     return await this.#javascript.availability();
   }
 
+  dispose(): void { this.#javascript.dispose?.(); }
+
   async run(code: string, context?: RunContext): Promise<RunResult> {
+    const { getVersion, transform } = await import("sucrase");
+    context?.signal?.throwIfAborted();
     const started = performance.now();
     const provider = `Sucrase ${getVersion()} → Web Worker`;
     let javascript: string;

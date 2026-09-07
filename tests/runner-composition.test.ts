@@ -1,6 +1,13 @@
-import { describe, expect, it, vi } from "vitest";
+import { afterEach, describe, expect, it, vi } from "vitest";
+import { resetWandboxCompilerCache } from "../src/runners/wandbox-runner";
+import { resetPersonalCompilerCapabilityCache } from "../src/runners/personal-compiler-runner";
 import { composeLanguageRunner, createRunnerRegistry } from "../src/runner-composition";
 import { SUPPORTED_LANGUAGES, supportedLanguage } from "../src/supported-languages";
+
+afterEach(() => {
+  resetWandboxCompilerCache();
+  resetPersonalCompilerCapabilityCache();
+});
 
 describe("runner composition", () => {
   it("registers every language from the declarative catalog", () => {
@@ -11,11 +18,22 @@ describe("runner composition", () => {
     );
   });
 
-  it("keeps provider order configurable without changing Markdown", async () => {
-    const html = supportedLanguage("html");
-    if (html === null) throw new Error("html missing");
-    const browserFirst = composeLanguageRunner(html, { executionOrder: "private-first" });
-    await expect(browserFirst.availability()).resolves.toMatchObject({ available: true });
+  it.each(["private-first", "remote-first"] as const)("uses %s order before executing source once", async (executionOrder) => {
+    const requests: string[] = [];
+    const fetch_ = vi.fn(async (input: RequestInfo | URL) => {
+      const url = input instanceof Request ? input.url : input.toString();
+      requests.push(url);
+      const body = url.includes("wandbox") ? [] : url.endsWith("capabilities")
+        ? { languages: ["java"], protocolVersion: 1, runnerVersion: "test", service: "personal-compiler", status: "online" }
+        : { durationMs: 1, exitCode: 0, language: "java", provider: "personal", stderr: "", stdout: "executed" };
+      return new Response(JSON.stringify(body));
+    });
+    const runner = createRunnerRegistry({ executionOrder, personalCompilerEnabled: true, personalCompilerEndpoint: "https://runner.example.com", fetch: fetch_ }).create("java");
+    await expect(runner?.availability()).resolves.toMatchObject({ available: true });
+    await expect(runner?.run("source")).resolves.toMatchObject({ stdout: "executed" });
+    expect(requests[0]).toContain(executionOrder === "private-first" ? "runner.example.com" : "wandbox");
+    expect(requests.filter(url => url.endsWith("/v1/run"))).toHaveLength(1);
+    expect(requests.filter(url => url.includes("compile.json"))).toHaveLength(0);
   });
 
   it("provides browser-only previews even when remote execution is disabled", async () => {

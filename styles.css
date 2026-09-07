@@ -26,7 +26,7 @@
   overflow: hidden;
 }
 
-.rcb .rcb__button--secondary[hidden],
+.rcb .rcb__button[hidden],
 .rcb .rcb__console[hidden],
 .rcb .rcb__notice[hidden],
 .rcb .rcb__output[hidden],

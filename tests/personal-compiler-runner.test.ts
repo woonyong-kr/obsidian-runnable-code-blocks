@@ -8,9 +8,35 @@ import {
 afterEach(() => {
   resetPersonalCompilerCapabilityCache();
   vi.restoreAllMocks();
+  vi.useRealTimers();
 });
 
 describe("PersonalCompilerRunner", () => {
+  it("does not retry an expired execution deadline", async () => {
+    vi.useFakeTimers();
+    const fetch_ = vi.fn(async (_input: RequestInfo | URL, init?: RequestInit) => await new Promise<Response>((_resolve, reject) => {
+      init?.signal?.addEventListener("abort", () => reject(init.signal?.reason as Error), { once: true });
+    }));
+    const runner = new PersonalCompilerRunner({ endpoint: "https://runner.example.com", fetch: fetch_, language: "java" });
+    const assertion = expect(runner.run("source")).rejects.toMatchObject({ name: "TimeoutError" });
+    await vi.advanceTimersByTimeAsync(22_000);
+    await assertion;
+    expect(fetch_).toHaveBeenCalledOnce();
+  });
+
+  it("preserves rate-limit metadata without retrying the code", async () => {
+    const fetch_ = vi.fn(async () => new Response('{"error":"busy"}', { status: 429, headers: { "Retry-After": "60" } }));
+    const runner = new PersonalCompilerRunner({ endpoint: "https://runner.example.com", fetch: fetch_, language: "java" });
+    await expect(runner.run("source")).rejects.toMatchObject({ retryAfterMs: 60_000, executionState: "not-started" });
+    expect(fetch_).toHaveBeenCalledOnce();
+  });
+
+  it.each(["{broken", "x".repeat(1_048_577)])("does not retry an invalid response (%#)", async (body) => {
+    const fetch_ = vi.fn(async () => new Response(body));
+    const runner = new PersonalCompilerRunner({ endpoint: "https://runner.example.com", fetch: fetch_, language: "java" });
+    await expect(runner.run("source")).rejects.toThrow();
+    expect(fetch_).toHaveBeenCalledOnce();
+  });
   it("accepts HTTPS origins and rejects paths or insecure public hosts", () => {
     expect(normalizePublicRunnerEndpoint("https://runner.woonyong.com")).toBe("https://runner.woonyong.com");
     expect(normalizePublicRunnerEndpoint("http://127.0.0.1:17172")).toBe("http://127.0.0.1:17172");

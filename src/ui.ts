@@ -90,6 +90,12 @@ export function mountRunnableBlock(host: HTMLElement, spec: RunnableBlockSpec): 
   const runningIcon = svgIcon(runButton, "M10 3.25a6.75 6.75 0 1 1-5.4 2.7", "rcb__button-icon rcb__button-icon--running");
   runningIcon.setAttribute("hidden", "");
 
+  const retryButton = element(actions, "button", "rcb__button rcb__button--retry", "다시 확인");
+  retryButton.type = "button";
+  retryButton.hidden = true;
+  const stopButton = element(actions, "button", "rcb__button rcb__button--stop", "중단");
+  stopButton.type = "button";
+  stopButton.hidden = true;
   const editorHost = element(root, "div", "rcb__editor");
   const notice = element(root, "div", "rcb__notice");
   notice.hidden = true;
@@ -106,9 +112,15 @@ export function mountRunnableBlock(host: HTMLElement, spec: RunnableBlockSpec): 
 
   const lifecycle = { disposed: false };
   let running = false;
+  let executionId = 0;
+  let previewActive = false;
+  let retryAt = 0;
+  let retryTimer: number | undefined;
+  root.dataset.state = "checking";
   let available = false;
   let availabilityDetail = "";
   let availabilityRequest = 0;
+  let checkingAvailability = false;
   let disposePreview: () => void = () => undefined;
   let executionController: AbortController | null = null;
 
@@ -118,7 +130,9 @@ export function mountRunnableBlock(host: HTMLElement, spec: RunnableBlockSpec): 
   };
 
   const setRunning = (value: boolean) => {
-    runButton.disabled = value || !available;
+    runButton.disabled = value || !available || Date.now() < retryAt;
+    stopButton.hidden = !value && !previewActive;
+    retryButton.disabled = value || checkingAvailability || Date.now() < retryAt;
     resetButton.disabled = value;
     runButton.setAttribute("aria-busy", value ? "true" : "false");
     root.setAttribute("aria-busy", value ? "true" : "false");
@@ -129,7 +143,9 @@ export function mountRunnableBlock(host: HTMLElement, spec: RunnableBlockSpec): 
   };
 
   const applyAvailabilityState = () => {
-    runButton.disabled = running || !available;
+    runButton.disabled = running || !available || Date.now() < retryAt;
+    retryButton.hidden = available && Date.now() >= retryAt;
+    retryButton.disabled = running || checkingAvailability || Date.now() < retryAt;
     status.title = availabilityDetail;
     status.setAttribute("aria-label", available
       ? `Ready to run. ${availabilityDetail}`
@@ -140,31 +156,40 @@ export function mountRunnableBlock(host: HTMLElement, spec: RunnableBlockSpec): 
     if (!available) {
       root.dataset.state = "unavailable";
       status.textContent = "Runner unavailable";
-    } else if (!running) {
+    } else if (!running && ["checking", "unavailable"].includes(root.dataset.state ?? "")) {
       root.dataset.state = "idle";
       status.textContent = "Ready to run";
     }
   };
 
-  const refreshAvailability = async (): Promise<boolean> => {
+  const refreshAvailability = async (signal?: AbortSignal): Promise<boolean> => {
+    if (Date.now() < retryAt || lifecycle.disposed) return false;
     const request = ++availabilityRequest;
+    checkingAvailability = true;
+    retryButton.disabled = true;
     try {
-      const runnerStatus = await spec.runner.availability();
-      if (lifecycle.disposed || request !== availabilityRequest) return false;
+      const runnerStatus = await spec.runner.availability({ signal });
+      if (lifecycle.disposed || signal?.aborted === true || request !== availabilityRequest) return false;
       available = runnerStatus.available;
       availabilityDetail = runnerStatus.detail;
     } catch (error) {
-      if (lifecycle.disposed || request !== availabilityRequest) return false;
+      if (lifecycle.disposed || signal?.aborted === true || request !== availabilityRequest) return false;
       available = false;
       availabilityDetail = error instanceof Error ? error.message : String(error);
     }
+    checkingAvailability = false;
     applyAvailabilityState();
     return available;
   };
 
   const run = async () => {
-    if (lifecycle.disposed || running || !available) return;
+    if (lifecycle.disposed || running || !available || Date.now() < retryAt) return;
     running = true;
+    const id = ++executionId;
+    const controller = new AbortController();
+    executionController = controller;
+    const current = () => !lifecycle.disposed && id === executionId && !controller.signal.aborted;
+    previewActive = false;
     setRunning(true);
     root.dataset.state = "running";
     status.textContent = "Running code";
@@ -172,8 +197,8 @@ export function mountRunnableBlock(host: HTMLElement, spec: RunnableBlockSpec): 
     preview.replaceChildren();
     preview.hidden = true;
     try {
-      if (!await refreshAvailability()) {
-        consolePanel.hidden = true;
+      if (!await refreshAvailability(controller.signal) || !current()) {
+        if (current()) consolePanel.hidden = true;
         return;
       }
       root.dataset.environment = spec.runner.environment;
@@ -184,12 +209,11 @@ export function mountRunnableBlock(host: HTMLElement, spec: RunnableBlockSpec): 
       consoleMeta.title = availabilityDetail;
       output.hidden = false;
       output.textContent = "Waiting for result…";
-      executionController = new AbortController();
       const result = await spec.runner.run(
         withoutTrailingDisplayLines(editor.getValue()),
-        { signal: executionController.signal }
+        { signal: controller.signal }
       );
-      if (lifecycle.disposed) return;
+      if (!current()) return;
       const resultEnvironment = result.environment ?? spec.runner.environment;
       root.dataset.environment = resultEnvironment;
       environmentName.textContent = environmentLabel(resultEnvironment);
@@ -213,7 +237,7 @@ export function mountRunnableBlock(host: HTMLElement, spec: RunnableBlockSpec): 
         status.textContent = "Starting interactive preview";
         consoleMeta.textContent = "Starting preview…";
         const previewHandle = renderPreview(preview, result.preview, ({ message, type }) => {
-          if (lifecycle.disposed) return;
+          if (!current()) return;
           if (type === "ready") return;
           previewLogs.append(message);
           output.hidden = false;
@@ -221,7 +245,7 @@ export function mountRunnableBlock(host: HTMLElement, spec: RunnableBlockSpec): 
             flushPending = true;
             queueMicrotask(() => {
               flushPending = false;
-              if (!lifecycle.disposed) output.textContent = previewLogs.toString();
+              if (current()) output.textContent = previewLogs.toString();
             });
           }
           if (type === "error") {
@@ -231,17 +255,28 @@ export function mountRunnableBlock(host: HTMLElement, spec: RunnableBlockSpec): 
             consoleMeta.textContent = "Runtime error · interactive browser sandbox";
           }
         });
-        disposePreview = () => previewHandle.dispose();
+        previewActive = true;
+        disposePreview = () => { previewHandle.dispose(); previewActive = false; };
         await previewHandle.ready;
-        if (!lifecycle.disposed && !previewFailed) finalizeResult();
+        if (current() && !previewFailed) {
+          finalizeResult();
+          status.textContent = "Preview ready";
+          status.setAttribute("aria-label", "Preview ready");
+          consoleMeta.textContent = `Preview ready${result.provider ? ` · ${result.provider}` : ""}`;
+        }
       } else {
         finalizeResult();
       }
     } catch (error) {
-      if (lifecycle.disposed) return;
+      if (!current()) return;
       if (error instanceof ProviderUnavailableError && error.executionState === "not-started") {
+        retryAt = Date.now() + (error.retryAfterMs ?? 0);
+        window.clearTimeout(retryTimer);
+        if (retryAt > Date.now()) retryTimer = window.setTimeout(() => {
+          if (!lifecycle.disposed) applyAvailabilityState();
+        }, Math.min(2_147_483_647, retryAt - Date.now()));
         available = false;
-        availabilityDetail = error.message;
+        availabilityDetail = error.retryAfterMs ? `${error.message} ${String(Math.ceil(error.retryAfterMs / 1000))}초 후 다시 확인할 수 있어요.` : error.message;
         consolePanel.hidden = true;
         applyAvailabilityState();
         return;
@@ -252,11 +287,34 @@ export function mountRunnableBlock(host: HTMLElement, spec: RunnableBlockSpec): 
       output.hidden = false;
       output.textContent = error instanceof Error ? error.message : String(error);
     } finally {
-      executionController = null;
-      running = false;
-      if (!lifecycle.disposed) setRunning(false);
+      if (id === executionId) {
+        executionController = null;
+        running = false;
+        if (!lifecycle.disposed) setRunning(false);
+      }
     }
   };
+
+  stopButton.addEventListener("click", () => {
+    executionId += 1;
+    availabilityRequest += 1;
+    checkingAvailability = false;
+    executionController?.abort();
+    executionController = null;
+    disposePreview();
+    preview.hidden = true;
+    running = false;
+    setRunning(false);
+    root.dataset.state = "cancelled";
+    status.textContent = "Cancelled";
+    consolePanel.hidden = false;
+    consoleMeta.textContent = "Cancelled";
+    output.hidden = false;
+    output.textContent = spec.runner.environment === "remote"
+      ? "응답 대기를 취소했습니다. 서버 작업의 종료 여부는 확인되지 않았습니다."
+      : "실행 또는 preview를 중단했습니다.";
+  });
+  retryButton.addEventListener("click", () => { if (!running && !checkingAvailability) void refreshAvailability(); });
 
   const editor: RunnableEditor = createRunnableEditor(
     editorHost,
@@ -268,13 +326,16 @@ export function mountRunnableBlock(host: HTMLElement, spec: RunnableBlockSpec): 
   runButton.addEventListener("click", () => { void run(); });
   resetButton.addEventListener("click", () => {
     if (running) return;
+    executionId += 1;
     editor.setValue(editorInitialCode);
     root.dataset.environment = spec.runner.environment;
     environmentName.textContent = environmentLabel(spec.runner.environment);
+    root.dataset.state = "checking";
     applyAvailabilityState();
     output.textContent = "";
     output.hidden = false;
     disposePreview();
+    setRunning(false);
     disposePreview = () => undefined;
     preview.replaceChildren();
     preview.hidden = true;
@@ -292,13 +353,15 @@ export function mountRunnableBlock(host: HTMLElement, spec: RunnableBlockSpec): 
     dispose: () => {
       if (lifecycle.disposed) return;
       lifecycle.disposed = true;
+      executionId += 1;
+      window.clearTimeout(retryTimer);
       executionController?.abort();
       disposePreview();
       editor.destroy();
       spec.runner.dispose?.();
       root.remove();
     },
-    refreshAvailability: async () => { await refreshAvailability(); }
+    refreshAvailability: async () => { if (!running) await refreshAvailability(); }
   };
 }
 

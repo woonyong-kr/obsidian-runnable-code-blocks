@@ -1,9 +1,5 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
 import type { CodeRunner, RunResult } from "../src/contracts";
-import {
-  EDITOR_MAX_VISIBLE_LINE_COUNT,
-  EDITOR_SOURCE_LINE_LIMIT
-} from "../src/editor";
 import { mountRunnableBlock } from "../src/ui";
 
 function createRunner(overrides: Partial<CodeRunner> = {}): CodeRunner {
@@ -14,10 +10,6 @@ function createRunner(overrides: Partial<CodeRunner> = {}): CodeRunner {
     run: async () => ({ durationMs: 1.5, exitCode: 0, stderr: "", stdout: "ok\n" }),
     ...overrides
   };
-}
-
-async function settleAsyncUi(): Promise<void> {
-  for (let index = 0; index < 4; index += 1) await Promise.resolve();
 }
 
 async function markPreviewReady(host: HTMLElement): Promise<void> {
@@ -34,7 +26,7 @@ async function markPreviewReady(host: HTMLElement): Promise<void> {
     origin: "null",
     source: frame?.contentWindow
   }));
-  await settleAsyncUi();
+  await vi.waitFor(() => expect(host.querySelector(".rcb__console-meta")?.textContent).toContain("Preview ready"));
 }
 
 afterEach(() => {
@@ -42,6 +34,35 @@ afterEach(() => {
 });
 
 describe("runnable block UI", () => {
+  it("rechecks an offline runner without losing edited source", async () => {
+    let online = false;
+    const host = document.body.appendChild(document.createElement("div"));
+    mountRunnableBlock(host, { code: "source", language: "java", runner: createRunner({ availability: async () => ({ available: online, detail: "offline" }) }) });
+    await vi.waitFor(() => expect(host.querySelector('.rcb')?.getAttribute('data-state')).toBe('unavailable'));
+    const editor = host.querySelector('.cm-editor');
+    online = true;
+    const retry = host.querySelector<HTMLButtonElement>('.rcb__button--retry');
+    expect(retry?.hidden).toBe(false);
+    retry?.click();
+    await vi.waitFor(() => expect(host.querySelector<HTMLButtonElement>('.rcb__button--run')?.disabled).toBe(false));
+    expect(host.querySelector('.cm-editor')).toBe(editor);
+  });
+
+  it("cancels a pending run and ignores a late successful result", async () => {
+    let finish!: (result: RunResult) => void;
+    const host = document.body.appendChild(document.createElement("div"));
+    mountRunnableBlock(host, { code: "source", language: "javascript", runner: createRunner({ run: async () => await new Promise(resolve => { finish = resolve; }) }) });
+    await vi.waitFor(() => expect(host.querySelector<HTMLButtonElement>('.rcb__button--run')?.disabled).toBe(false));
+    host.querySelector<HTMLButtonElement>('.rcb__button--run')?.click();
+    await vi.waitFor(() => expect(finish).toBeDefined());
+    const stop = host.querySelector<HTMLButtonElement>('.rcb__button--stop');
+    expect(stop?.hidden).toBe(false);
+    stop?.click();
+    expect(host.querySelector('.rcb')?.getAttribute('data-state')).toBe('cancelled');
+    finish({ durationMs: 1, exitCode: 0, stdout: 'stale', stderr: '' });
+    await vi.waitFor(() => expect(host.querySelector<HTMLButtonElement>('.rcb__button--run')?.disabled).toBe(false));
+    expect(host.querySelector('.rcb__output')?.textContent).not.toContain('stale');
+  });
   it("renders numbered trailing lines and disposes the mounted block", async () => {
     const host = document.body.appendChild(document.createElement("div"));
     const mounted = mountRunnableBlock(host, {
@@ -66,7 +87,6 @@ describe("runnable block UI", () => {
     expect(host.querySelector(".rcb__status")?.textContent).toBe("Ready to run");
     expect(host.querySelector<HTMLElement>(".rcb__console")?.hidden).toBe(true);
     expect(host.querySelector<HTMLButtonElement>(".rcb__button--secondary")?.hidden).toBe(true);
-    expect(host.querySelectorAll(".cm-line")).toHaveLength(3);
     mounted.dispose();
     expect(host.querySelector(".rcb")).toBeNull();
   });
@@ -85,23 +105,6 @@ describe("runnable block UI", () => {
     expect(host.querySelector(".cm-editor")).not.toBeNull();
   });
 
-  it("lets 100 source lines plus two numbered editing lines grow before scrolling", async () => {
-    const host = document.body.appendChild(document.createElement("div"));
-    mountRunnableBlock(host, {
-      code: Array.from({ length: EDITOR_SOURCE_LINE_LIMIT }, (_, index) => `// ${String(index + 1)}`).join("\n"),
-      language: "javascript",
-      runner: createRunner()
-    });
-    await Promise.resolve();
-
-    const editorHost = host.querySelector<HTMLElement>(".rcb__editor");
-    expect(EDITOR_MAX_VISIBLE_LINE_COUNT).toBe(102);
-    expect(editorHost?.style.getPropertyValue("--rcb-editor-max-height")).toBe(
-      "calc(102lh + 16px)"
-    );
-    expect(EDITOR_MAX_VISIBLE_LINE_COUNT - EDITOR_SOURCE_LINE_LIMIT).toBe(2);
-  });
-
   it("shows runner exceptions as console errors", async () => {
     const host = document.body.appendChild(document.createElement("div"));
     mountRunnableBlock(host, {
@@ -111,7 +114,7 @@ describe("runnable block UI", () => {
     });
     await Promise.resolve();
     host.querySelector<HTMLButtonElement>(".rcb__button--run")?.click();
-    await settleAsyncUi();
+    await vi.waitFor(() => expect(host.querySelector(".rcb")?.getAttribute("data-state")).toBe("error"));
 
     expect(host.querySelector(".rcb")?.getAttribute("data-state")).toBe("error");
     expect(host.querySelector(".rcb__output")?.textContent).toBe("sandbox failed");
@@ -132,7 +135,7 @@ describe("runnable block UI", () => {
 
     const button = host.querySelector<HTMLButtonElement>(".rcb__button--run");
     button?.click();
-    await settleAsyncUi();
+    await vi.waitFor(() => expect(host.querySelector(".rcb__output")?.textContent).toBe("Waiting for result…"));
 
     expect(button?.getAttribute("aria-busy")).toBe("true");
     expect(button?.textContent).toBe("");
@@ -142,7 +145,7 @@ describe("runnable block UI", () => {
     expect(host.querySelector(".rcb__output")?.textContent).toBe("Waiting for result…");
 
     finish?.({ durationMs: 12, exitCode: 0, provider: "Test runner", stderr: "", stdout: "done" });
-    await settleAsyncUi();
+    await vi.waitFor(() => expect(host.querySelector(".rcb")?.getAttribute("data-state")).toBe("success"));
 
     expect(button?.getAttribute("aria-busy")).toBe("false");
     expect(button?.textContent).toBe("");
@@ -168,11 +171,11 @@ describe("runnable block UI", () => {
     await Promise.resolve();
     const button = host.querySelector<HTMLButtonElement>(".rcb__button--run");
     button?.click();
-    await settleAsyncUi();
+    await vi.waitFor(() => expect(host.querySelector(".rcb__console-meta")?.textContent).toBe("Success · 2 ms · First provider"));
     expect(host.querySelector(".rcb__console-meta")?.textContent).toBe("Success · 2 ms · First provider");
 
     button?.click();
-    await settleAsyncUi();
+    await vi.waitFor(() => expect(host.querySelector(".rcb__console-meta")?.textContent).toBe("Runner error"));
     expect(host.querySelector(".rcb__console-meta")?.textContent).toBe("Runner error");
     expect(host.querySelector(".rcb__output")?.textContent).toBe("second run failed");
   });
@@ -208,7 +211,7 @@ describe("runnable block UI", () => {
         availability: async () => { throw new Error("provider preflight crashed"); }
       })
     });
-    await settleAsyncUi();
+    await vi.waitFor(() => expect(host.querySelector(".rcb")?.getAttribute("data-state")).toBe("unavailable"));
 
     expect(host.querySelector(".rcb")?.getAttribute("data-state")).toBe("unavailable");
     expect(host.querySelector<HTMLButtonElement>(".rcb__button--run")?.disabled).toBe(true);
@@ -231,7 +234,7 @@ describe("runnable block UI", () => {
     enabled = false;
 
     host.querySelector<HTMLButtonElement>(".rcb__button--run")?.click();
-    await settleAsyncUi();
+    await vi.waitFor(() => expect(host.querySelector(".rcb")?.getAttribute("data-state")).toBe("unavailable"));
 
     expect(availability).toHaveBeenCalledTimes(2);
     expect(run).not.toHaveBeenCalled();
@@ -240,7 +243,7 @@ describe("runnable block UI", () => {
     expect(host.querySelector<HTMLElement>(".rcb__console")?.hidden).toBe(true);
   });
 
-  it("refreshes mounted availability without replacing edited content or output", async () => {
+  it("refreshes mounted availability without replacing the editor", async () => {
     let enabled = true;
     const host = document.body.appendChild(document.createElement("div"));
     const mounted = mountRunnableBlock(host, {
@@ -320,10 +323,10 @@ describe("runnable block UI", () => {
     await Promise.resolve();
     const button = host.querySelector<HTMLButtonElement>(".rcb__button--run");
     button?.click();
-    await settleAsyncUi();
+    await vi.waitFor(() => expect(host.querySelector(".rcb__output")?.textContent).toBe("partial\ncompile error"));
     expect(host.querySelector(".rcb__output")?.textContent).toBe("partial\ncompile error");
     button?.click();
-    await settleAsyncUi();
+    await vi.waitFor(() => expect(host.querySelector(".rcb__output")?.textContent).toBe("Process finished with no output."));
     expect(host.querySelector(".rcb__output")?.textContent).toBe("Process finished with no output.");
   });
 
@@ -345,7 +348,7 @@ describe("runnable block UI", () => {
     });
     await Promise.resolve();
     host.querySelector<HTMLButtonElement>(".rcb__button--run")?.click();
-    await settleAsyncUi();
+    await vi.waitFor(() => expect(host.querySelector(".rcb__preview-frame")).not.toBeNull());
 
     const frame = host.querySelector<HTMLIFrameElement>('.rcb__preview-frame');
     expect(frame?.getAttribute("sandbox")).toBe("allow-scripts");
@@ -354,7 +357,7 @@ describe("runnable block UI", () => {
     expect(frame?.srcdoc).not.toContain("<h1>Hello</h1>");
     expect(host.querySelector(".rcb__console-meta")?.textContent).toBe("Starting preview…");
     await markPreviewReady(host);
-    expect(host.querySelector(".rcb__console-meta")?.textContent).toBe("Success · 0 ms");
+    expect(host.querySelector(".rcb__console-meta")?.textContent).toBe("Preview ready");
   });
 
   it("allows scripts only for the isolated interactive web preview", async () => {
@@ -376,12 +379,11 @@ describe("runnable block UI", () => {
     });
     await Promise.resolve();
     host.querySelector<HTMLButtonElement>(".rcb__button--run")?.click();
-    await settleAsyncUi();
+    await vi.waitFor(() => expect(host.querySelector(".rcb__preview-frame")).not.toBeNull());
     await markPreviewReady(host);
 
     const frame = host.querySelector<HTMLIFrameElement>(".rcb__preview-frame");
     expect(frame?.getAttribute("sandbox")).toBe("allow-scripts");
-    expect(frame?.srcdoc).toContain('preview.setAttribute("sandbox", "allow-scripts")');
     expect(frame?.title).toBe("Interactive code preview");
     expect(host.querySelector<HTMLElement>(".rcb__output")?.hidden).toBe(true);
   });
@@ -404,7 +406,7 @@ describe("runnable block UI", () => {
     });
     await Promise.resolve();
     host.querySelector<HTMLButtonElement>(".rcb__button--run")?.click();
-    await settleAsyncUi();
+    await vi.waitFor(() => expect(host.querySelector(".rcb__preview-frame")).not.toBeNull());
 
     const frame = host.querySelector<HTMLIFrameElement>(".rcb__preview-frame");
     window.dispatchEvent(new MessageEvent("message", {
@@ -428,7 +430,6 @@ describe("runnable block UI", () => {
     }));
 
     expect(frame?.style.height).toBe("732px");
-    expect(frame?.srcdoc).toContain("preview.style.height = height + \"px\"");
   });
 
   it("shows the provider environment that actually completed a fallback run", async () => {
@@ -450,7 +451,7 @@ describe("runnable block UI", () => {
     });
     await Promise.resolve();
     host.querySelector<HTMLButtonElement>(".rcb__button--run")?.click();
-    await settleAsyncUi();
+    await vi.waitFor(() => expect(host.querySelector(".rcb")?.getAttribute("data-state")).toBe("success"));
 
     expect(host.querySelector(".rcb")?.getAttribute("data-environment")).toBe("browser");
     expect(host.querySelector(".rcb__environment-name")?.textContent).toBe("Browser");

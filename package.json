@@ -21,7 +21,8 @@
   },
   "knip": {
     "entry": [
-      "local-runner/src/cli.ts"
+      "local-runner/src/cli.ts",
+      "src/language-catalog.ts"
     ],
     "ignoreBinaries": [
       "ffmpeg",

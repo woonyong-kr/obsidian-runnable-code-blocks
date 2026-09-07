@@ -4,6 +4,7 @@ export type RunnerEnvironment = "browser" | "local" | "remote";
 
 export interface RunnerAvailability {
   available: boolean;
+  reason?: "offline" | "unsupported" | "misconfigured";
   detail: string;
 }
 
@@ -28,7 +29,7 @@ export interface RunContext {
 export interface CodeRunner {
   readonly environment: RunnerEnvironment;
   readonly language: string;
-  availability(): Promise<RunnerAvailability>;
+  availability(context?: RunContext): Promise<RunnerAvailability>;
   run(code: string, context?: RunContext): Promise<RunResult>;
   dispose?(): void;
 }

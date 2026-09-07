@@ -48,9 +48,11 @@ export class PersonalCompilerRunner implements CodeRunner {
     this.#fetch = options.fetch ?? unavailableFetch;
   }
 
-  async availability(): Promise<RunnerAvailability> {
+  async availability(context?: RunContext): Promise<RunnerAvailability> {
     try {
-      const capabilities = await cachedCapabilities(this.#endpoint, this.#fetch);
+      const capabilities = context?.signal === undefined
+        ? await cachedCapabilities(this.#endpoint, this.#fetch)
+        : await fetchCapabilities(this.#endpoint, this.#fetch, context.signal);
       if (!capabilities.languages.includes(this.language)) {
         return {
           available: false,
@@ -61,8 +63,9 @@ export class PersonalCompilerRunner implements CodeRunner {
         available: true,
         detail: `Personal compiler ${capabilities.runnerVersion} · isolated container · network disabled`
       };
-    } catch {
-      return { available: false, detail: OFFLINE_DETAIL };
+    } catch (error) {
+      if (context?.signal?.aborted === true) throw error;
+      return { available: false, detail: OFFLINE_DETAIL, reason: "offline" };
     }
   }
 
@@ -83,15 +86,17 @@ export class PersonalCompilerRunner implements CodeRunner {
         },
         context?.signal
       );
-    } catch {
-      throw new ProviderUnavailableError(OFFLINE_DETAIL, "not-started");
+    } catch (error) {
+      if (context?.signal?.aborted === true || (error instanceof DOMException && error.name === "TimeoutError")) throw error;
+      throw new ProviderUnavailableError(OFFLINE_DETAIL, "unknown");
     }
     if (!response.ok) {
       const detail = await publicError(response);
       if (response.status === 429) {
         throw new ProviderUnavailableError(
           "개인 컴파일러가 현재 다른 실행을 처리 중이에요. 잠시 후 다시 실행해 주세요.",
-          "not-started"
+          "not-started",
+          { retryAfterMs: retryAfter(response.headers.get("Retry-After")) }
         );
       }
       if ([403, 404, 409, 413, 503].includes(response.status)) {
@@ -156,8 +161,8 @@ function fetchId(fetch_: FetchLike): number {
   return fetchSequence;
 }
 
-async function fetchCapabilities(endpoint: string, fetch_: FetchLike): Promise<CapabilitiesResponse> {
-  const response = await fetchWithTimeout(fetch_, `${endpoint}/v1/capabilities`, {}, 2_500);
+async function fetchCapabilities(endpoint: string, fetch_: FetchLike, signal?: AbortSignal): Promise<CapabilitiesResponse> {
+  const response = await fetchWithTimeout(fetch_, `${endpoint}/v1/capabilities`, {}, 2_500, signal);
   if (!response.ok) throw new Error(`HTTP ${String(response.status)}`);
   const value = await response.json() as unknown;
   if (!isCapabilitiesResponse(value)) throw new Error("invalid capability response");
@@ -170,11 +175,13 @@ async function requestWithOneRetry(
   init: RequestInit,
   signal?: AbortSignal
 ): Promise<Response> {
+  const deadline = Date.now() + 22_000;
   try {
     return await fetchWithTimeout(fetch_, input, init, 22_000, signal);
   } catch (firstError) {
-    if (signal?.aborted === true) throw firstError;
-    return await fetchWithTimeout(fetch_, input, init, 22_000, signal);
+    const remaining = deadline - Date.now();
+    if (signal?.aborted === true || remaining <= 0 || !(firstError instanceof TypeError)) throw firstError;
+    return await fetchWithTimeout(fetch_, input, init, remaining, signal);
   }
 }
 
@@ -210,4 +217,10 @@ function isPublicRunResponse(value: unknown, language: string): value is PublicR
     && Number.isFinite(record.durationMs)
     && typeof record.exitCode === "number"
     && Number.isInteger(record.exitCode);
+}
+
+function retryAfter(value: string | null): number {
+  if (value === null) return 1_000;
+  const seconds = Number(value);
+  return Number.isFinite(seconds) ? Math.max(0, seconds * 1000) : Math.max(0, Date.parse(value) - Date.now()) || 1_000;
 }

@@ -1,6 +1,4 @@
-import { getVersion, transform } from "sucrase";
-import reactRuntime from "virtual:react-runtime";
-import type { CodeRunner, RunResult } from "../contracts";
+import type { CodeRunner, RunContext, RunResult } from "../contracts";
 import { appendElement } from "../dom";
 import { OUTPUT_LIMITS } from "../output-buffer";
 
@@ -165,13 +163,16 @@ export class BrowserPreviewRunner implements CodeRunner {
         };
   }
 
-  async run(code: string): Promise<RunResult> {
+  async run(code: string, context?: RunContext): Promise<RunResult> {
+    context?.signal?.throwIfAborted();
     if (this.language === "react") {
+      const [{ getVersion, transform }, { default: reactRuntime }] = await Promise.all([import("sucrase"), import("virtual:react-runtime")]);
+      context?.signal?.throwIfAborted();
       const started = performance.now();
       const provider = `React ${reactRuntime.version} · Sucrase ${getVersion()} → interactive browser sandbox`;
       try {
-        const compiled = compileReactModule(code);
-        const application = reactApplication(compiled);
+        const compiled = compileReactModule(code, transform);
+        const application = reactApplication(compiled, reactRuntime.source);
         return {
           ...previewResult(
             secureDocument(application, INTERACTIVE_CSP, CONSOLE_BRIDGE),
@@ -199,10 +200,12 @@ export class BrowserPreviewRunner implements CodeRunner {
       );
     }
     if (this.language === "web-ts") {
+      const { getVersion, transform } = await import("sucrase");
+      context?.signal?.throwIfAborted();
       const started = performance.now();
       const provider = `Sucrase ${getVersion()} → interactive browser sandbox`;
       try {
-        const html = transpileTypeScriptScripts(code);
+        const html = transpileTypeScriptScripts(code, transform);
         return {
           ...previewResult(secureDocument(html, INTERACTIVE_CSP, CONSOLE_BRIDGE), "isolated", provider),
           durationMs: performance.now() - started
@@ -226,7 +229,7 @@ export class BrowserPreviewRunner implements CodeRunner {
   }
 }
 
-function compileReactModule(code: string): string {
+function compileReactModule(code: string, transform: typeof import("sucrase").transform): string {
   return transform(code, {
     disableESTransforms: true,
     jsxRuntime: "classic",
@@ -235,8 +238,8 @@ function compileReactModule(code: string): string {
   }).code;
 }
 
-function reactApplication(compiled: string): string {
-  const runtime = escapeClosingScript(reactRuntime.source);
+function reactApplication(compiled: string, runtimeSource: string): string {
+  const runtime = escapeClosingScript(runtimeSource);
   const application = escapeClosingScript(compiled);
   return `${REACT_ROOT}<script>${runtime}</script><script>
 (() => {
@@ -304,7 +307,7 @@ function createNonce(): string {
   return btoa(String.fromCharCode(...bytes));
 }
 
-function transpileTypeScriptScripts(html: string): string {
+function transpileTypeScriptScripts(html: string, transform: typeof import("sucrase").transform): string {
   const document_ = new DOMParser().parseFromString(html, "text/html");
   const scripts = document_.querySelectorAll<HTMLScriptElement>('script[type="text/typescript"]');
   for (const script of scripts) {

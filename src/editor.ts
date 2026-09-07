@@ -33,9 +33,9 @@ import { javascript } from "@codemirror/lang-javascript";
 import { tags } from "@lezer/highlight";
 import { appendElement } from "./dom";
 
-export const EDITOR_SOURCE_LINE_LIMIT = 100;
+const EDITOR_SOURCE_LINE_LIMIT = 100;
 export const EDITOR_TRAILING_BLANK_LINE_COUNT = 2;
-export const EDITOR_MAX_VISIBLE_LINE_COUNT =
+const EDITOR_MAX_VISIBLE_LINE_COUNT =
   EDITOR_SOURCE_LINE_LIMIT + EDITOR_TRAILING_BLANK_LINE_COUNT;
 
 const hostHighlightStyle = HighlightStyle.define([

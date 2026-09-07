@@ -13,7 +13,7 @@ test("edits, resets, runs, and interacts with the React example", async ({ page 
   await expect(editor).toContainText("useState");
 
   await lesson.getByRole("button", { name: "Run code" }).click();
-  await expect(lesson.locator(".rcb__console-meta")).toContainText("Success");
+  await expect(lesson.locator(".rcb__console-meta")).toContainText("Preview ready");
   const container = lesson.locator(".rcb__preview-frame").contentFrame();
   const preview = container.locator("#preview").contentFrame();
   const counter = preview.getByRole("button");
@@ -32,7 +32,7 @@ export default function PortalExample() {
 }`);
 
   await lesson.getByRole("button", { name: "Run code" }).click();
-  await expect(lesson.locator(".rcb__console-meta")).toContainText("Success");
+  await expect(lesson.locator(".rcb__console-meta")).toContainText("Preview ready");
   const preview = lesson.locator(".rcb__preview-frame").contentFrame().locator("#preview").contentFrame();
   await expect(preview.getByText("Portal works")).toBeVisible();
 });
@@ -108,8 +108,7 @@ test("keeps an interactive preview navigation inside its sandbox", async ({ page
 location.href = "/preview-navigation-should-not-load";
 </script>`);
   await lesson.getByRole("button", { name: "Run code" }).click();
-  await expect(lesson.locator(".rcb__console-meta")).toContainText("Success");
-  await page.waitForTimeout(250);
+  await expect(lesson.locator(".rcb__console-meta")).toContainText("Preview ready");
 
   expect(escapedRequests).toEqual([]);
 });
@@ -195,7 +194,7 @@ export default function App() {
 }`);
 
   await lesson.getByRole("button", { name: "Run code" }).click();
-  await expect(lesson.locator(".rcb__console-meta")).toContainText("Success");
+  await expect(lesson.locator(".rcb__console-meta")).toContainText("Preview ready");
   const outer = lesson.locator(".rcb__preview-frame");
   await expect(outer).toHaveAttribute("referrerpolicy", "no-referrer");
   await expect(outer).not.toHaveAttribute("sandbox", /allow-same-origin/u);
@@ -203,7 +202,7 @@ export default function App() {
   await expect(previewFrame).toHaveAttribute("referrerpolicy", "no-referrer");
   await expect(previewFrame).not.toHaveAttribute("sandbox", /allow-same-origin/u);
   await expect(previewFrame.contentFrame().getByText("Sandbox remains ready")).toBeVisible();
-  await page.waitForTimeout(250);
+  await expect.poll(() => failedRequests.length).toBe(1);
 
   expect(attemptedRequests).toHaveLength(1);
   expect(failedRequests).toHaveLength(1);

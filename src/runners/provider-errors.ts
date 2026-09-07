@@ -2,11 +2,13 @@ export type ExecutionState = "not-started" | "unknown";
 
 export class ProviderUnavailableError extends Error {
   readonly executionState: ExecutionState;
+  readonly retryAfterMs?: number;
 
-  constructor(message: string, executionState: ExecutionState) {
+  constructor(message: string, executionState: ExecutionState, options: { retryAfterMs?: number } = {}) {
     super(message);
     this.name = "ProviderUnavailableError";
     this.executionState = executionState;
+    this.retryAfterMs = options.retryAfterMs;
   }
 }
 

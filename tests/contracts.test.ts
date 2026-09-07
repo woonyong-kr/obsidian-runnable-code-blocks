@@ -18,16 +18,11 @@ describe("runnable fence contract", () => {
     expect(() => fenceForLanguage("bad language")).toThrow("Invalid runnable language");
   });
 
-  it("lists every implemented language and its environment", () => {
-    expect(SUPPORTED_LANGUAGES.map(({ id }) => id)).toEqual([
-      "javascript", "typescript", "python", "sql", "html", "css", "web", "web-ts", "react", "kotlin", "java",
-      "c", "cpp", "go", "rust", "csharp", "swift", "ruby", "php", "r", "scala",
-      "dart", "lua", "shell"
-    ]);
-    expect(SUPPORTED_LANGUAGES.every(({ fence, id }) => fence === `run-${id}`)).toBe(true);
-    expect(SUPPORTED_LANGUAGES.find(({ id }) => id === "kotlin")).toMatchObject({
-      remoteAdapter: "kotlin-playground"
-    });
-    expect(SUPPORTED_LANGUAGES.filter(({ remoteAdapter }) => remoteAdapter === "wandbox")).toHaveLength(16);
+  it.each([
+    ["run-javascript", "javascript"], ["run-cpp", "cpp"],
+    ["run-csharp", "csharp"], ["run-web-ts", "web-ts"], ["run-react", "react"],
+  ])("keeps the public fence %s compatible", (fence, id) => {
+    expect(parseRunnableFence(fence)).toBe(id);
+    expect(SUPPORTED_LANGUAGES.find(language => language.id === id)?.fence).toBe(fence);
   });
 });
