@@ -11,18 +11,23 @@ describe("normalizeSettings", () => {
   it("uses safe defaults for missing or malformed data", () => {
     expect(normalizeSettings(null)).toEqual(DEFAULT_SETTINGS);
     expect(normalizeSettings([])).toEqual(DEFAULT_SETTINGS);
-    expect(normalizeSettings({ executionOrder: "unknown", remoteExecutionEnabled: "yes" }))
+    expect(normalizeSettings({ executionOrder: "unknown", localRunnerEndpoint: "https://example.com", remoteExecutionEnabled: "yes" }))
       .toEqual(DEFAULT_SETTINGS);
   });
 
   it("preserves the old private-first value as browser-first", () => {
     expect(normalizeSettings({ executionOrder: "private-first", remoteExecutionEnabled: false }))
-      .toEqual({ executionOrder: "browser-first", remoteExecutionEnabled: false });
+      .toEqual({ ...DEFAULT_SETTINGS, executionOrder: "private-first", remoteExecutionEnabled: false });
   });
 
   it("accepts current settings", () => {
-    expect(normalizeSettings({ executionOrder: "browser-first", remoteExecutionEnabled: true }))
-      .toEqual({ executionOrder: "browser-first", remoteExecutionEnabled: true });
+    expect(normalizeSettings({ executionOrder: "browser-first", localExecutionEnabled: true, localRunnerEndpoint: "http://localhost:17171", remoteExecutionEnabled: true }))
+      .toEqual({
+        executionOrder: "private-first",
+        localExecutionEnabled: true,
+        localRunnerEndpoint: "http://localhost:17171",
+        remoteExecutionEnabled: true
+      });
   });
 });
 
@@ -44,23 +49,35 @@ describe("RunnableCodeBlocksSettingTab", () => {
       "name" in definition ? definition.name : undefined
     )).toEqual([
       "Supported languages",
+      "Local runner",
+      "Local runner endpoint",
+      "Pairing token",
       "Remote execution",
       "Provider order"
     ]);
+    expect(tab.getControlValue("localExecutionEnabled")).toBe(false);
+    expect(tab.getControlValue("localRunnerEndpoint")).toBe("http://127.0.0.1:17171");
     expect(tab.getControlValue("remoteExecutionEnabled")).toBe(true);
-    expect(tab.getControlValue("executionOrder")).toBe("remote-first");
+    expect(tab.getControlValue("executionOrder")).toBe("private-first");
     expect(tab.getControlValue("unknown")).toBeUndefined();
   });
 
   it("persists only valid control values", async () => {
     const { saveSettings, settings, tab } = createTab();
 
+    await tab.setControlValue("localExecutionEnabled", true);
+    await tab.setControlValue("localRunnerEndpoint", "http://localhost:19191");
     await tab.setControlValue("remoteExecutionEnabled", false);
-    await tab.setControlValue("executionOrder", "browser-first");
+    await tab.setControlValue("executionOrder", "remote-first");
     await tab.setControlValue("executionOrder", "invalid");
     await tab.setControlValue("unknown", true);
 
-    expect(settings).toEqual({ executionOrder: "browser-first", remoteExecutionEnabled: false });
-    expect(saveSettings).toHaveBeenCalledTimes(2);
+    expect(settings).toEqual({
+      executionOrder: "remote-first",
+      localExecutionEnabled: true,
+      localRunnerEndpoint: "http://localhost:19191",
+      remoteExecutionEnabled: false
+    });
+    expect(saveSettings).toHaveBeenCalledTimes(4);
   });
 });

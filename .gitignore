@@ -3,5 +3,6 @@ coverage/
 dist-site/
 test-results/
 main.js
+local-runner/dist/
 *.log
 .DS_Store

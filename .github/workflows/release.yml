@@ -39,6 +39,7 @@ jobs:
             main.js
             manifest.json
             styles.css
+            local-runner/dist/runnable-code-blocks-local-runner.mjs
       - name: Create draft release
         env:
           GH_TOKEN: ${{ github.token }}
@@ -48,4 +49,4 @@ jobs:
           --draft
           --generate-notes
           --target "$GITHUB_SHA"
-          main.js manifest.json styles.css
+          main.js manifest.json styles.css local-runner/dist/runnable-code-blocks-local-runner.mjs

@@ -1,5 +1,13 @@
 # Changelog
 
+## 0.6.0
+
+- Add an opt-in localhost companion for 17 native and interpreted languages while preserving the existing browser and remote adapters and the portable `run-<language>` Markdown contract.
+- Keep the Community Plugin mobile-compatible: it talks to the companion over authenticated loopback HTTP, stores the pairing token in Obsidian SecretStorage, and never spawns a process or installs a runtime itself.
+- Run local code in explicitly prepared, digest-pinned containers with no network, a read-only root filesystem, non-root UID, dropped capabilities, and CPU, memory, PID, time, source-size, concurrency, and output limits.
+- Make private-first the safe default for new installs: browser-native execution wins where available, then the local companion, then an enabled remote provider. Preserve remote-first for existing settings that selected it.
+- Package the standalone Node.js 22 companion as a release asset and document targeted image preparation so the complete multi-language toolchain is never downloaded silently.
+
 ## 0.5.1
 
 - Require the per-preview token on every relayed message and cap the outer relay independently, so direct inner-frame messages cannot bypass the shared output limit.

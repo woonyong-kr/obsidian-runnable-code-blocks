@@ -37,6 +37,7 @@ function durationLabel(durationMs: number): string {
 
 function environmentLabel(environment: RunnableBlockSpec["runner"]["environment"]): string {
   if (environment === "remote") return "Remote";
+  if (environment === "local") return "Local";
   return "Browser";
 }
 

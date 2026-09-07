@@ -15,6 +15,8 @@ function runner(
   };
 }
 
+const localRunner = () => runner("local");
+
 describe("FallbackRunner", () => {
   it("uses the first available provider and records its boundary", async () => {
     const browserAvailability = vi.fn(async () => ({ available: true, detail: "browser status" }));
@@ -37,6 +39,11 @@ describe("FallbackRunner", () => {
     await expect(new FallbackRunner("python", [remote, runner("browser", { run: browserRun })]).run("code"))
       .resolves.toMatchObject({ stdout: "browser" });
     expect(browserRun).toHaveBeenCalledOnce();
+  });
+
+  it("reports a local execution boundary", async () => {
+    await expect(new FallbackRunner("python", [localRunner()]).run("code"))
+      .resolves.toMatchObject({ environment: "local", provider: "local" });
   });
 
   it("does not execute code twice after an unknown remote outcome", async () => {

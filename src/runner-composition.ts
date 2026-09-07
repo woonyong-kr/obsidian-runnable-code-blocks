@@ -5,6 +5,7 @@ import { BrowserPreviewRunner } from "./runners/browser-preview-runner";
 import { FallbackRunner } from "./runners/fallback-runner";
 import type { FetchLike } from "./runners/http-client";
 import { BrowserJavaScriptRunner } from "./runners/javascript-runner";
+import { LocalCompanionRunner } from "./runners/local-companion-runner";
 import { BrowserTypeScriptRunner } from "./runners/typescript-runner";
 import { ProviderUnavailableError } from "./runners/provider-errors";
 import {
@@ -13,11 +14,14 @@ import {
   type SupportedLanguage
 } from "./supported-languages";
 
-export type ExecutionOrder = "browser-first" | "remote-first";
+export type ExecutionOrder = "private-first" | "remote-first";
 
 export interface RunnerCompositionOptions {
   executionOrder?: ExecutionOrder;
   fetch?: FetchLike;
+  localExecutionEnabled?: boolean;
+  localRunnerEndpoint?: string;
+  localRunnerToken?: string;
   remoteExecutionEnabled?: boolean;
 }
 
@@ -94,6 +98,9 @@ class PolicyAwareRunner implements CodeRunner {
 function samePolicy(left: RunnerCompositionOptions, right: RunnerCompositionOptions): boolean {
   return left.executionOrder === right.executionOrder &&
     left.fetch === right.fetch &&
+    left.localExecutionEnabled === right.localExecutionEnabled &&
+    left.localRunnerEndpoint === right.localRunnerEndpoint &&
+    left.localRunnerToken === right.localRunnerToken &&
     left.remoteExecutionEnabled === right.remoteExecutionEnabled;
 }
 
@@ -103,9 +110,18 @@ export function composeLanguageRunner(
 ): CodeRunner {
   const remote = options.remoteExecutionEnabled === false ? null : createRemoteRunner(language, options.fetch);
   const browser = browserRunners(language);
-  const ordered = options.executionOrder === "browser-first"
-    ? [...browser, ...(remote === null ? [] : [remote])]
-    : [...(remote === null ? [] : [remote]), ...browser];
+  const local = options.localExecutionEnabled === true && language.localAdapter !== undefined
+    ? new LocalCompanionRunner({
+        endpoint: options.localRunnerEndpoint ?? "http://127.0.0.1:17171",
+        fetch: options.fetch,
+        language: language.id,
+        token: options.localRunnerToken ?? ""
+      })
+    : null;
+  const privateRunners = [...browser, ...(local === null ? [] : [local])];
+  const ordered = options.executionOrder === "private-first"
+    ? [...privateRunners, ...(remote === null ? [] : [remote])]
+    : [...(remote === null ? [] : [remote]), ...privateRunners];
   if (ordered.length === 0) {
     return new UnavailableRunner(
       language.id,

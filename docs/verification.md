@@ -6,7 +6,7 @@ The full remote sample sweep passed for all 18 CLI-backed language samples on 20
 
 ## Automated verification
 
-`npm run verify` passed for version 0.5.1:
+`npm run verify` passed for version 0.6.0:
 
 - TypeScript strict checking and ESLint, including `eslint-plugin-obsidianmd` Community rules;
 - Knip dead-code and dependency analysis;
@@ -14,7 +14,7 @@ The full remote sample sweep passed for all 18 CLI-backed language samples on 20
 - fresh-build Chromium E2E checks for editing and Reset, React interaction, host theme tokens, keyboard focus, the 102/103-line scroll boundary, preview navigation containment, ReactDOM script-resource CSP rejection, bounded direct preview relays, and real Worker output truncation;
 - coverage exceeds the enforced 80% statement/line, 70% branch, and 75% function thresholds;
 - both production bundles remain below the reviewed 5 MB release ceiling;
-- release-policy check: 24 runnable fences and 8 runtime adapters;
+- release-policy check: 24 runnable fences, 9 plugin adapters, and 17 digest-pinned local container profiles;
 - npm package dry run contains only the 7 declared release files.
 
 Additional repository checks passed:
@@ -22,6 +22,15 @@ Additional repository checks passed:
 - `npm audit`: 0 known vulnerabilities;
 - Knip: 0 unused files, dependencies, exports, or exported types;
 - `git diff --check`: no whitespace errors.
+
+## Local companion verification
+
+- The authenticated HTTP boundary rejects missing tokens, invalid language IDs, and source bodies above 256 KB before execution.
+- The client accepts only `http://127.0.0.1` and `http://localhost`, stores no token in plugin data, and treats an ambiguous post-submission failure as unknown so fallback cannot duplicate side effects.
+- Docker Desktop 29.4.0 executed the pinned Alpine Shell profile and returned `local-ok` with exit code 0; no `rcb-*` container remained afterward.
+- The pinned Java profile compiled and returned `java-local-ok` with empty stderr.
+- The pinned Kotlin/JVM profile compiled and returned `kotlin-local-ok`; an initial Jansi warning exposed a missing explicit tmpfs execution flag, which was corrected and directly re-tested with clean output.
+- The remaining profile commands and security flags are covered structurally, but their large images are downloaded only when a user explicitly runs `prepare <language>` rather than as part of plugin installation or CI.
 
 ## Browser verification
 

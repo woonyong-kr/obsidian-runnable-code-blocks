@@ -1,16 +1,16 @@
 {
   "name": "runnable-code-blocks",
-  "version": "0.5.1",
+  "version": "0.6.0",
   "description": "Run 24 Markdown code-block fences, including React JSX and TSX, without hosting an execution server.",
   "main": "main.js",
   "type": "module",
   "scripts": {
-    "build": "node esbuild.config.mjs production",
+    "build": "node esbuild.config.mjs production && node local-runner/esbuild.config.mjs",
     "demo:build": "node demo/scripts/build.mjs",
     "demo:capture": "node demo/scripts/capture.mjs",
     "demo:serve": "node scripts/serve-demo.mjs",
     "dev": "node esbuild.config.mjs",
-    "check": "tsc --noEmit && eslint src tests site && node --check scripts/verify-release.mjs",
+    "check": "tsc --noEmit && eslint src tests site local-runner/src local-runner/tests && node --check scripts/verify-release.mjs",
     "knip": "knip",
     "test": "vitest run --coverage",
     "test:e2e": "playwright test",
@@ -20,6 +20,9 @@
     "verify": "npm run check && npm run knip && npm test && npm run build && npm run verify:release && npm run test:e2e && npm pack --dry-run"
   },
   "knip": {
+    "entry": [
+      "local-runner/src/cli.ts"
+    ],
     "ignoreBinaries": [
       "ffmpeg",
       "ffprobe"

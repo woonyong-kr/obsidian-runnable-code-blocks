@@ -27,7 +27,7 @@
 Runnable Code Blocks keeps the explanation, the experiment, and the result in one note. Readers edit a temporary copy, press **Run**, and see exactly which browser or public provider produced the output; the Markdown source stays portable and unchanged.
 
 - **24 exact runnable fences** — 21 programming languages plus interactive JavaScript, TypeScript, and React documents.
-- **No execution server to host** — browser-native runners and named public providers work in Obsidian and the static adapter.
+- **No cloud runner to operate** — browser-native runners and named public providers work immediately; Obsidian Desktop can opt into a private localhost companion.
 - **Portable Markdown** — the document stores ordinary `run-<language>` fences instead of plugin-specific state.
 - **Disposable editing** — change and run a sample freely; **Reset** or reopening the rendered note restores the Markdown source.
 - **Visible execution boundaries** — every result names the browser or third-party provider that actually ran it.
@@ -38,7 +38,7 @@ Runnable Code Blocks keeps the explanation, the experiment, and the result in on
 | --- | --- |
 | Learn beside an explanation | Replaces `run-<language>` fences with temporary editable runners in Reading view |
 | Keep Markdown portable | Stores only ordinary fenced code in the note; editor state and output are disposable |
-| Avoid hosting a backend | Uses seven browser-native fences and named public execution providers |
+| Avoid hosting a cloud backend | Uses seven browser-native fences, an optional local container companion, and named public providers |
 | Publish the same lesson | Shares the parser, catalog, runner composition, editor, and output UI with the static adapter |
 | Understand the trust boundary | Labels the selected provider before execution and keeps remote execution configurable |
 
@@ -101,7 +101,7 @@ export default function Counter() {
 ## What happens when you press Run
 
 1. The exact fence chooses one entry from the shared language catalog.
-2. The configured provider order selects a remote or browser-native adapter.
+2. The configured provider order selects a browser-native, local container, or remote adapter.
 3. A preflight checks whether execution can start and the header names the selected environment.
 4. The editor sends only the current temporary source to that adapter.
 5. Output, errors, duration, and provider details appear inline without modifying the note.
@@ -122,41 +122,41 @@ The UI follows the active Obsidian theme through semantic interface and `--code-
 
 ## Supported languages
 
-Version 0.5.0 defines the following stable fences. “Remote” means source is sent to the named provider; this project does not operate an execution server.
+Version 0.6.0 defines the following stable fences. “Local” means the optional desktop companion can execute it after its image is explicitly prepared. “Remote” means source is sent to the named provider; this project does not operate a public execution server.
 
-| Fence | Runtime |
-| --- | --- |
-| `run-javascript` | Wandbox → Web Worker |
-| `run-typescript` | Wandbox → browser transpile |
-| `run-python` | Wandbox |
-| `run-sql` | Wandbox |
-| `run-html` | Sandboxed preview iframe |
-| `run-css` | Sandboxed preview iframe |
-| `run-web` | Interactive isolated iframe |
-| `run-web-ts` | Sucrase → interactive isolated iframe |
-| `run-react` | React + Sucrase → interactive isolated iframe |
-| `run-kotlin` | Kotlin Playground |
-| `run-java` | Wandbox |
-| `run-c` | Wandbox |
-| `run-cpp` | Wandbox |
-| `run-go` | Wandbox |
-| `run-rust` | Wandbox |
-| `run-csharp` | Wandbox |
-| `run-swift` | SwiftFiddle |
-| `run-ruby` | Wandbox |
-| `run-php` | Wandbox |
-| `run-r` | Wandbox |
-| `run-scala` | Wandbox |
-| `run-dart` | DartPad compile → isolated frame |
-| `run-lua` | Wandbox |
-| `run-shell` | Wandbox |
+| Fence | Browser/static runtime | Optional local runner |
+| --- | --- | --- |
+| `run-javascript` | Wandbox → Web Worker | — |
+| `run-typescript` | Wandbox → browser transpile | — |
+| `run-python` | Wandbox | Python container |
+| `run-sql` | Wandbox | SQLite container |
+| `run-html` | Sandboxed preview iframe | — |
+| `run-css` | Sandboxed preview iframe | — |
+| `run-web` | Interactive isolated iframe | — |
+| `run-web-ts` | Sucrase → interactive isolated iframe | — |
+| `run-react` | React + Sucrase → interactive isolated iframe | — |
+| `run-kotlin` | Kotlin Playground | Kotlin/JVM container |
+| `run-java` | Wandbox | Java container |
+| `run-c` | Wandbox | GCC container |
+| `run-cpp` | Wandbox | GCC container |
+| `run-go` | Wandbox | Go container |
+| `run-rust` | Wandbox | Rust container |
+| `run-csharp` | Wandbox | .NET SDK container |
+| `run-swift` | SwiftFiddle | Swift container |
+| `run-ruby` | Wandbox | Ruby container |
+| `run-php` | Wandbox | PHP container |
+| `run-r` | Wandbox | R container |
+| `run-scala` | Wandbox | Scala container |
+| `run-dart` | DartPad compile → isolated frame | Dart container |
+| `run-lua` | Wandbox | Lua container |
+| `run-shell` | Wandbox | Alpine `sh` container |
 
 ## Execution and privacy
 
 Code runs only after **Run** or the keyboard shortcut. Treat every runnable block as executable code.
 
-- Remote execution is enabled and remote-first by default so the same Markdown works on a static deployment.
-- Settings can choose browser-first or disable remote execution. With remote execution disabled, JavaScript, TypeScript, HTML, CSS, Web, Web TypeScript, and React remain browser-native.
+- Remote execution is enabled, while private-first is the default for new Obsidian installs. Browser-native execution is used first, then an enabled local companion, then a remote provider.
+- Existing settings that explicitly chose remote-first keep that order. Remote execution can be disabled without disabling browser or local execution.
 - JavaScript and transpiled TypeScript run in a fresh disposable Web Worker with a five-second timeout. Common direct network globals are shadowed, but the Worker is a lifecycle boundary rather than a security sandbox; run only code you trust.
 - HTML and CSS render in an opaque sandboxed iframe. Their authored scripts remain blocked by a restrictive Content Security Policy; only the nonce-bound internal height reporter can run so the result can expand without an internal scrollbar. CSS is applied to a reusable card, button, and text specimen.
 - Interactive `run-web` documents may use inline HTML, CSS, and JavaScript inside a fresh opaque-origin iframe. `run-web-ts` transpiles `<script type="text/typescript">` blocks before using the same sandbox.
@@ -164,7 +164,7 @@ Code runs only after **Run** or the keyboard shortcut. Treat every runnable bloc
 - All interactive previews block Fetch/XHR/WebSocket calls, subresource loading, forms, popups, top navigation, objects, and same-origin access. A per-run token authenticates every relayed message, the outer frame enforces the same output cap independently, and both frame layers use a no-referrer policy.
 - Interactive DOM previews share Obsidian's renderer process. A script that blocks the event loop, such as `while (true) {}`, cannot be force-stopped by the plugin; close or reload the affected view and run only trusted examples.
 - Kotlin Playground, Wandbox, SwiftFiddle, and DartPad receive source only when their adapter is selected.
-- The Community Plugin does not access the filesystem, spawn local processes, install runtimes, or modify `PATH`.
+- The Community Plugin does not access the filesystem, spawn local processes, install runtimes, or modify `PATH`. The optional companion is a separately installed release asset and uses only the local container engine.
 
 A fallback occurs only when execution is known not to have started. Compilation errors, program failures, timeouts with an unknown remote outcome, and non-zero exits never cause the same code to run again through another provider. See [runtime provider architecture](docs/runtime-providers.md) for the full contract.
 
@@ -172,9 +172,24 @@ A fallback occurs only when execution is known not to have started. Compilation 
 
 Open **Settings → Community plugins → Runnable Code Blocks**:
 
+- **Local runner** — opt into the separately installed desktop companion.
+- **Local runner endpoint** — accepts only `http://127.0.0.1` or `http://localhost`.
+- **Pairing token** — stored in Obsidian SecretStorage rather than plugin data.
 - **Remote execution** — allow or block source submission to named providers.
-- **Provider order** — choose Remote → Browser or Browser → Remote.
+- **Provider order** — choose Browser/local → Remote or Remote → Browser/local.
 - **Supported languages** — inspect the complete runtime map from the same catalog used by the plugin.
+
+## Optional local runner
+
+The local runner is useful when a public provider is unavailable or source should remain on the desktop. It requires Node.js 22 and a running Docker-compatible engine. Download `runnable-code-blocks-local-runner.mjs` from the matching GitHub release, then prepare only the languages you need:
+
+```bash
+node runnable-code-blocks-local-runner.mjs list
+node runnable-code-blocks-local-runner.mjs prepare kotlin java cpp
+node runnable-code-blocks-local-runner.mjs start
+```
+
+Copy the printed token into the plugin settings and enable **Local runner**. The service binds only to `127.0.0.1`; it is not a public backend and must never be exposed through port forwarding or a reverse proxy. Full setup, isolation controls, image references, and troubleshooting are documented in [Local runner](local-runner/README.md).
 
 ## Troubleshooting
 
@@ -192,7 +207,7 @@ The browser adapter recognizes ordinary rendered Markdown:
 <pre><code class="language-run-python">print("Hello")</code></pre>
 ```
 
-It shares the fence parser, language catalog, runner composition, editor, and output UI with the Obsidian plugin. No API key, database, Vercel function, Supabase project, or project-owned backend is required. The deployed adapter is available as a [live 24-fence demo](https://woonyong-kr.github.io/obsidian-runnable-code-blocks/).
+It shares the fence parser, language catalog, runner composition, editor, and output UI with the Obsidian plugin. The public site never connects to the maintainer's local runner: it uses browser-native and named remote adapters only. No API key, database, Vercel function, Supabase project, or project-owned cloud backend is required. The deployed adapter is available as a [live 24-fence demo](https://woonyong-kr.github.io/obsidian-runnable-code-blocks/).
 
 ## Architecture and maintenance
 
@@ -200,6 +215,8 @@ Provider-specific change is isolated from the stable UI and Markdown contract:
 
 - `src/supported-languages.ts` is the public support catalog and exact fence map;
 - `src/runner-composition.ts` defines provider order and fallback composition;
+- `src/runners/local-companion-runner.ts` owns the authenticated loopback protocol;
+- `local-runner/src/` owns the standalone HTTP boundary and container engine without entering the Community Plugin bundle;
 - `src/runners/*-runner.ts` owns third-party URLs, request bodies, compiler selection, and response parsing;
 - `src/contracts.ts` owns the portable fence and execution-result contracts;
 - `src/editor.ts` and `src/ui.ts` own the host-theme-aware editor and Output surface;
@@ -209,7 +226,7 @@ When a public provider changes, its adapter can be repaired and released without
 
 ## Installation and compatibility
 
-Install from **Settings → Community plugins → Browse → Runnable Code Blocks**. Version 0.5.0 supports Obsidian 1.13.0 or later on desktop and mobile.
+Install from **Settings → Community plugins → Browse → Runnable Code Blocks**. Version 0.6.0 supports Obsidian 1.13.0 or later on desktop and mobile. Local container execution is desktop-only and opt-in; all other adapters keep their existing platform support.
 
 For a manual release install, download `main.js`, `manifest.json`, and `styles.css` from the [latest release](https://github.com/woonyong-kr/obsidian-runnable-code-blocks/releases/latest) into `.obsidian/plugins/runnable-code-blocks/`, then reload Obsidian.
 

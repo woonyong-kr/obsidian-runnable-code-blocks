@@ -14,7 +14,7 @@ describe("runner composition", () => {
   it("keeps provider order configurable without changing Markdown", async () => {
     const html = supportedLanguage("html");
     if (html === null) throw new Error("html missing");
-    const browserFirst = composeLanguageRunner(html, { executionOrder: "browser-first" });
+    const browserFirst = composeLanguageRunner(html, { executionOrder: "private-first" });
     await expect(browserFirst.availability()).resolves.toMatchObject({ available: true });
   });
 
@@ -58,6 +58,37 @@ describe("runner composition", () => {
     if (python === null) throw new Error("python missing");
     const runner = composeLanguageRunner(python, { remoteExecutionEnabled: false });
     await expect(runner.availability()).resolves.toMatchObject({ available: false });
+  });
+
+  it("uses the optional local companion before remote execution in private-first mode", async () => {
+    const java = supportedLanguage("java");
+    if (java === null) throw new Error("java missing");
+    const fetch_ = vi.fn()
+      .mockResolvedValueOnce(new Response(JSON.stringify({
+        engine: "Docker 28",
+        languages: ["java"],
+        protocolVersion: 1,
+        runnerVersion: "0.1.0"
+      })))
+      .mockResolvedValueOnce(new Response(JSON.stringify({
+        durationMs: 8,
+        exitCode: 0,
+        language: "java",
+        provider: "Local container · java@sha256:test",
+        stderr: "",
+        stdout: "local-ok\n"
+      })));
+    const runner = composeLanguageRunner(java, {
+      executionOrder: "private-first",
+      fetch: fetch_ as typeof fetch,
+      localExecutionEnabled: true,
+      localRunnerEndpoint: "http://127.0.0.1:17171",
+      localRunnerToken: "test-token-with-32-safe-characters"
+    });
+
+    await expect(runner.run("class Main {}"))
+      .resolves.toMatchObject({ environment: "local", stdout: "local-ok\n" });
+    expect(fetch_).toHaveBeenCalledTimes(2);
   });
 
   it("applies a changed execution policy to runners that are already mounted", async () => {

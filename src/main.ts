@@ -5,6 +5,7 @@ import { createRunnerRegistry } from "./runner-composition";
 import type { RunnerRegistry } from "./runner-registry";
 import {
   DEFAULT_SETTINGS,
+  LOCAL_RUNNER_SECRET_ID,
   RunnableCodeBlocksSettingTab,
   normalizeSettings,
   type RunnableCodeBlocksSettings
@@ -47,6 +48,9 @@ export default class RunnableCodeBlocksPlugin extends Plugin {
     const registry = createRunnerRegistry(() => ({
       executionOrder: this.settings.executionOrder,
       fetch: obsidianFetch,
+      localExecutionEnabled: this.settings.localExecutionEnabled,
+      localRunnerEndpoint: this.settings.localRunnerEndpoint,
+      localRunnerToken: this.app.secretStorage.getSecret(LOCAL_RUNNER_SECRET_ID) ?? "",
       remoteExecutionEnabled: this.settings.remoteExecutionEnabled
     }));
 

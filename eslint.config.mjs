@@ -41,5 +41,13 @@ export default tseslint.config(
       "obsidianmd/prefer-create-el": "off"
     }
   },
+  {
+    files: ["local-runner/**/*.ts"],
+    rules: {
+      "no-restricted-globals": "off",
+      "obsidianmd/no-nodejs-modules": "off",
+      "obsidianmd/prefer-window-timers": "off"
+    }
+  },
   { ignores: ["main.js", "node_modules", "coverage", "dist-site", "scripts/*.mjs"] }
 );

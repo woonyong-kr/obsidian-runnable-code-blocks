@@ -32,7 +32,12 @@ describe("Obsidian plugin boundary", () => {
 
     await plugin.onload();
 
-    expect(plugin.settings).toEqual({ executionOrder: "browser-first", remoteExecutionEnabled: false });
+    expect(plugin.settings).toEqual({
+      executionOrder: "private-first",
+      localExecutionEnabled: false,
+      localRunnerEndpoint: "http://127.0.0.1:17171",
+      remoteExecutionEnabled: false
+    });
     expect(register).toHaveBeenCalledTimes(24);
     expect(register.mock.calls.map(([fence]) => fence)).toContain("run-react");
     expect(addSettingTab).toHaveBeenCalledOnce();

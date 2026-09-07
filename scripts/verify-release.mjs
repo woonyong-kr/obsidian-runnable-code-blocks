@@ -13,6 +13,8 @@ const sourceByFile = new Map(
   await Promise.all(sourceFiles.map(async (file) => [file, await readFile(file, "utf8")]))
 );
 const source = [...sourceByFile.values()].join("\n");
+const localRunnerFiles = await filesUnder("local-runner/src", ".ts");
+const localRunnerSource = (await Promise.all(localRunnerFiles.map(async (file) => await readFile(file, "utf8")))).join("\n");
 const readme = await readFile("README.md", "utf8");
 const releaseMedia = JSON.parse(await readFile("docs/release-media.json", "utf8"));
 const errors = [];
@@ -44,12 +46,15 @@ const requiredAdapters = [
   "src/runners/fallback-runner.ts",
   "src/runners/javascript-runner.ts",
   "src/runners/kotlin-playground-runner.ts",
+  "src/runners/local-companion-runner.ts",
   "src/runners/swiftfiddle-runner.ts",
   "src/runners/typescript-runner.ts",
   "src/runners/wandbox-runner.ts"
 ];
 const approvedOrigins = new Set([
   "http://www.w3.org",
+  "http://127.0.0.1",
+  "http://localhost",
   "https://api.kotlinlang.org",
   "https://dartpad.dev",
   "https://runner.swift-playground.com",
@@ -65,7 +70,7 @@ if (packageJson.version !== manifest.version) errors.push("manifest and package 
 if (versions[manifest.version] !== manifest.minAppVersion) errors.push("versions.json does not match manifest");
 if (releaseMedia.version !== manifest.version) errors.push("release media version does not match manifest");
 if (releaseMedia.publicSafeSample !== true) errors.push("release media must use a public-safe sample");
-if (manifest.isDesktopOnly !== false) errors.push("browser/remote-only plugin must remain available beyond desktop");
+if (manifest.isDesktopOnly !== false) errors.push("the optional HTTP companion must not make the plugin desktop-only");
 if (!packageJson.repository?.url?.endsWith("woonyong-kr/obsidian-runnable-code-blocks.git")) {
   errors.push("package repository is not the approved source");
 }
@@ -73,6 +78,7 @@ for (const file of [
   "main.js",
   "manifest.json",
   "styles.css",
+  "local-runner/dist/runnable-code-blocks-local-runner.mjs",
   "dist-site/index.html",
   "dist-site/main.js",
   "dist-site/plugin.css",
@@ -134,6 +140,15 @@ for (const origin of new Set(discoveredOrigins)) {
   if (!approvedOrigins.has(origin)) errors.push(`runtime source contains an unapproved network origin: ${origin}`);
 }
 if (/\bWebSocket\s*\(/u.test(source)) errors.push("runtime source opens a WebSocket");
+if (!localRunnerSource.includes('"--network", "none"')) errors.push("local runner must disable container networking");
+if (!localRunnerSource.includes('"--read-only"')) errors.push("local runner must use a read-only root filesystem");
+if (!localRunnerSource.includes('"--cap-drop", "ALL"')) errors.push("local runner must drop container capabilities");
+if (!localRunnerSource.includes('"--security-opt", "no-new-privileges"')) {
+  errors.push("local runner must set no-new-privileges");
+}
+const pinnedImages = [...localRunnerSource.matchAll(/(?:docker\.io|mcr\.microsoft\.com)\/[a-z0-9./-]+@sha256:[0-9a-f]{64}/gu)];
+if (pinnedImages.length !== 17) errors.push("local runner must define exactly 17 digest-pinned language profiles");
+if (/\b(?:0\.0\.0\.0|::)\b/u.test(localRunnerSource)) errors.push("local runner must not bind to a wildcard address");
 
 if (errors.length) throw new Error(errors.join("\n"));
 console.log(JSON.stringify({
