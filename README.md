@@ -28,6 +28,9 @@ Captured from the current browser adapter in Chromium on September 8, 2026. This
 
 Runnable Code Blocks keeps the explanation, the experiment, and the result in one note. Readers edit a temporary copy, press **Run**, and see exactly which browser, isolated container, or named public provider produced the output; the Markdown source stays portable and unchanged.
 
+The toolbar uses SVG icons: **Edit source → Copy code → Run** in Obsidian Live Preview. Edit appears on hover or keyboard focus (and stays visible on touch devices). Copy shows a check for 1.5 seconds, then returns to the copy icon. Run becomes a spinning **Stop** action while execution or an interactive preview is active; press the same button again to stop. The active-line background appears only while editing.
+
+
 - **24 exact runnable fences** — 21 programming languages plus interactive JavaScript, TypeScript, and React documents.
 - **Graceful provider fallback** — browser-native runners work immediately; prepared container languages can use a private localhost companion or an explicitly configured personal compiler before named public providers.
 - **Portable Markdown** — the document stores ordinary `run-<language>` fences instead of plugin-specific state.

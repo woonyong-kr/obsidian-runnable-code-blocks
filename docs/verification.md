@@ -61,6 +61,14 @@ The nested editor gutter fix (`00ad7ba`) removes Obsidian's inherited 24-pixel f
 
 The existing 360/1280-pixel browser tests now check actual control spacing, SVG presence, accessible names, copying, and horizontal overflow. These browser viewports do not constitute physical mobile-app verification. A WebGL watchdog failure occurred during an earlier combined run; subsequent isolated and full runs passed, but its original cause remains unconfirmed. No timeout assertion was relaxed to pass it.
 
+## Toolbar and focus follow-up — 2026-09-08
+
+The Obsidian adapter supplies an optional source-edit callback to the shared UI. Its SVG action comes before Copy and Run, delegates to Obsidian's existing source-edit handler, and appears on hover or keyboard focus without shifting controls. Touch devices keep it visible. The duplicated native hover frame is suppressed only around Runnable blocks. Editor highlighting is focus-only; the inherited permanent scrollbar gutter is reset so short lines span the full editor width.
+
+Copy feedback returns from the check to Copy after 1.5 seconds, and its timer is cleared on edits and disposal. A single execution button changes from Run to a spinning Stop action while a request or preview is active. The same button cancels execution. Both manual termination and automatic Worker shutdown restore Run; the trusted frame forwards its existing stopped acknowledgement for watchdog and resource-limit termination too. Error output remains visible, and cancellation acknowledgement/unknown-result contracts remain intact.
+
+Native sample-vault checks confirmed the action order, delegated source editing, timed Copy reset, single-button execution/cancellation, successful Canvas restart, and no captured app errors. The browser regression suite exercises actual Worker termination and recovery rather than only checking icon labels.
+
 ## Community scan boundaries
 
 The public [Community scorecard](https://community.obsidian.md/plugins/runnable-code-blocks#scorecard) was inspected on 2026-09-08. It reported Caution for the released 0.7.0, while asset attestation, byte-for-byte main.js reproduction, and the dependency vulnerability scan passed. The local candidate has not yet replaced that release.
