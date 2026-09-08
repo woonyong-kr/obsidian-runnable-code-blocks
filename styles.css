@@ -170,11 +170,6 @@
   opacity: 0.45;
 }
 
-.rcb[data-state="running"] .rcb__button--run:disabled {
-  cursor: progress;
-  opacity: 0.9;
-}
-
 .rcb .rcb__button--run {
   background: var(--rcb-accent);
   color: var(--text-on-accent, #ffffff);
