@@ -73,8 +73,10 @@ test("inherits host theme tokens and shows a keyboard focus ring", async ({ page
   await page.addStyleTag({ content: `
     .markdown-source-view.mod-cm6 .cm-gutters { margin-inline-end: 24px; }
     .markdown-source-view.mod-cm6 .cm-content { padding: 0; }
+    .markdown-source-view.mod-cm6 .cm-scroller { scrollbar-gutter: stable; }
     .markdown-source-view.mod-cm6 .cm-line { padding: 0; }
   ` });
+  await expect(lesson.locator(".cm-activeLine")).toHaveCSS("background-color", "rgba(0, 0, 0, 0)");
   await lesson.locator(".cm-content").focus();
   await expect(lesson.locator(".rcb__editor")).not.toHaveCSS("box-shadow", "none");
   const activeRow = await block.evaluate((element) => {
@@ -86,16 +88,21 @@ test("inherits host theme tokens and shows a keyboard focus ring", async ({ page
       topDifference: line.getBoundingClientRect().top - gutter.getBoundingClientRect().top,
       gutterBackground: getComputedStyle(gutter).backgroundColor,
       lineBackground: getComputedStyle(line).backgroundColor,
-      codePadding: getComputedStyle(line).paddingLeft
+      codePadding: getComputedStyle(line).paddingLeft,
+      scrollbarGutter: getComputedStyle(element.querySelector(".cm-scroller") ?? element).scrollbarGutter
     };
   });
   expect(activeRow.gap).toBe(0);
   expect(Math.abs(activeRow.topDifference)).toBeLessThan(1);
   expect(activeRow.gutterBackground).toBe(activeRow.lineBackground);
   expect(activeRow.codePadding).toBe("8px");
+  expect(activeRow.scrollbarGutter).toBe("auto");
+  expect(activeRow.lineBackground).not.toBe("rgba(0, 0, 0, 0)");
+  await lesson.getByRole("button", { name: "Copy code", exact: true }).focus();
+  await expect(lesson.locator(".cm-activeLine")).toHaveCSS("background-color", "rgba(0, 0, 0, 0)");
 });
 
-test("keeps the Live Preview hover frame and source action outside runner controls", async ({ page }) => {
+test("keeps Live Preview hover from adding a second frame or moving the runner", async ({ page }) => {
   await page.goto("/");
   const lesson = page.locator("[data-featured-test-case]");
   await lesson.evaluate((element) => {
@@ -108,14 +115,6 @@ test("keeps the Live Preview hover frame and source action outside runner contro
     runner.before(host);
     host.append(content);
     content.append(runner);
-    const actions = document.createElement("div");
-    actions.className = "embed-actions";
-    const edit = document.createElement("button");
-    edit.className = "edit-block-button";
-    edit.setAttribute("aria-label", "Edit source");
-    edit.onclick = () => host.setAttribute("data-source-edit-requested", "true");
-    actions.append(edit);
-    host.append(actions);
   });
   await page.addStyleTag({ content: `
     .markdown-source-view.mod-cm6 .cm-embed-block { position: relative; --embed-block-shadow-hover: inset 0 0 0 2px #aaa; }
@@ -132,14 +131,7 @@ test("keeps the Live Preview hover frame and source action outside runner contro
   expect(await block.boundingBox()).toEqual(before);
   const hostBounds = await host.boundingBox();
   expect(hostBounds?.height).toBe(before?.height);
-  const edit = host.getByRole("button", { name: "Edit source" });
-  const sourceBounds = await edit.boundingBox();
-  const runBounds = await host.getByRole("button", { name: "Run code" }).boundingBox();
-  if (!sourceBounds || !runBounds) throw new Error("Toolbar action is missing");
-  expect(sourceBounds.x - (runBounds.x + runBounds.width)).toBeGreaterThanOrEqual(7);
-  expect(Math.abs(sourceBounds.y - runBounds.y)).toBeLessThan(1);
-  await edit.click();
-  await expect(host).toHaveAttribute("data-source-edit-requested", "true");
+
 });
 
 test("allows 102 numbered lines before the editor itself scrolls", async ({ page }) => {

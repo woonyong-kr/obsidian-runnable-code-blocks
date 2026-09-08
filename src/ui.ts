@@ -74,7 +74,11 @@ function withoutTrailingDisplayLines(code: string): string {
   return code.replace(/\n+$/u, "");
 }
 
-export function mountRunnableBlock(host: HTMLElement, spec: RunnableBlockSpec): MountedRunnableBlock {
+export function mountRunnableBlock(
+  host: HTMLElement,
+  spec: RunnableBlockSpec,
+  options: { onEditSource?: () => void } = {}
+): MountedRunnableBlock {
   const editorInitialCode = withTrailingBlankLines(spec.code);
   host.replaceChildren();
   const root = element(host, "section", "rcb");
@@ -94,6 +98,10 @@ export function mountRunnableBlock(host: HTMLElement, spec: RunnableBlockSpec): 
   const actions = element(toolbar, "div", "rcb__actions");
   const status = element(actions, "span", "rcb__status rcb__sr-only", "Checking runner availability");
   status.setAttribute("aria-live", "polite");
+  if (options.onEditSource) {
+    const editButton = iconButton(actions, "rcb__button--secondary rcb__button--source", "Edit source", "M12.5 3.5l4 4M3 17l4.5-1L17 6.5 13.5 3 4 12.5Z");
+    editButton.addEventListener("click", options.onEditSource);
+  }
   const copyButton = iconButton(actions, "rcb__button--secondary", "Copy code", COPY_ICON);
   const resetButton = iconButton(actions, "rcb__button--secondary rcb__button--reset", "Reset", "M3 3v5h5M3 8a7 7 0 1 1 0 5");
   resetButton.hidden = true;
