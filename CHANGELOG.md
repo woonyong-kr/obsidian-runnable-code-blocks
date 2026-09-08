@@ -1,5 +1,13 @@
 # Changelog
 
+## 0.7.1
+
+- Use one Run/Stop action with a spinning SVG indicator; reset copy feedback after 1.5 seconds.
+- Show Obsidian source editing on hover or keyboard focus and fix toolbar spacing, nested gutters, and hover frames.
+- Restore controls after automatic Worker termination and rate-limit timers, including early wakeups and clock changes.
+- Contain rejected HTTP requests and reduce Kotlin compiler startup work without changing execution limits.
+- Refresh README media and make coverage optional while retaining cancellation, sandbox, and provider regression tests.
+
 ## 0.7.0
 
 - Add a separate, opt-in public personal-compiler gateway for static sites, with exact Host and Origin checks, per-client and global quotas, concurrency control, idempotent request IDs, and sanitized responses.

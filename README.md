@@ -232,7 +232,7 @@ When a public provider changes, its adapter can be repaired and released without
 
 ## Installation and compatibility
 
-Community listing is pending. Install from the GitHub release as described below. Version 0.7.0 supports Obsidian 1.13.0 or later on desktop and mobile. Local container execution is desktop-only and opt-in; all other adapters keep their existing platform support.
+Community listing is pending. Install from the GitHub release as described below. Version 0.7.1 supports Obsidian 1.13.0 or later on desktop and mobile. Local container execution is desktop-only and opt-in; all other adapters keep their existing platform support.
 
 For a manual release install, download `main.js`, `manifest.json`, and `styles.css` from the [latest release](https://github.com/woonyong-kr/obsidian-runnable-code-blocks/releases/latest) into `.obsidian/plugins/runnable-code-blocks/`, then reload Obsidian.
 

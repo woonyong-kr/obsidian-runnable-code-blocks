@@ -1,5 +1,5 @@
 {
-  "version": "0.7.0",
+  "version": "0.7.1",
   "capturedWith": "Static web adapter rendered in Chromium",
   "capturedAt": "2026-09-08",
   "publicSafeSample": true,
@@ -22,5 +22,6 @@
       "height": 900,
       "sha256": "6f9c4f4d6caf0b7b6226e70398ba423106aa9866a5a1ca154211665ae576c6e2"
     }
-  ]
+  ],
+  "capturedVersion": "0.7.0"
 }
