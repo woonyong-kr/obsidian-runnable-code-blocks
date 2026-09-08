@@ -39,6 +39,7 @@ jobs:
             main.js
             manifest.json
             styles.css
+            THIRD_PARTY_NOTICES.md
             local-runner/dist/runnable-code-blocks-local-runner.mjs
       - name: Create draft release
         env:
@@ -49,4 +50,4 @@ jobs:
           --draft
           --generate-notes
           --target "$GITHUB_SHA"
-          main.js manifest.json styles.css local-runner/dist/runnable-code-blocks-local-runner.mjs
+          main.js manifest.json styles.css THIRD_PARTY_NOTICES.md local-runner/dist/runnable-code-blocks-local-runner.mjs

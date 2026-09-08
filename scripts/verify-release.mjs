@@ -80,6 +80,7 @@ for (const file of [
   "main.js",
   "manifest.json",
   "styles.css",
+  "THIRD_PARTY_NOTICES.md",
   "local-runner/dist/runnable-code-blocks-local-runner.mjs",
   "dist-site/index.html",
   "dist-site/main.js",

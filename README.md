@@ -262,4 +262,4 @@ Provider URLs, compiler selection, request bodies, and response parsing live onl
 
 ## License
 
-[MIT](LICENSE)
+[MIT](LICENSE). Bundled runtimes have their own licenses; see [third-party notices](THIRD_PARTY_NOTICES.md).
