@@ -50,6 +50,24 @@
   display: none;
 }
 
+.rcb .rcb__button--source {
+  opacity: 0;
+  pointer-events: none;
+}
+
+.rcb:hover .rcb__button--source,
+.rcb:focus-within .rcb__button--source {
+  opacity: 1;
+  pointer-events: auto;
+}
+
+@media (hover: none) {
+  .rcb .rcb__button--source {
+    opacity: 1;
+    pointer-events: auto;
+  }
+}
+
 .rcb__sr-only {
   border: 0;
   clip: rect(0, 0, 0, 0);

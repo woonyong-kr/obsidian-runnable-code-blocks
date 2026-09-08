@@ -57,7 +57,7 @@ describe("runnable block UI", () => {
     await vi.waitFor(() => expect(host.querySelector<HTMLButtonElement>('.rcb__button--run')?.disabled).toBe(false));
     host.querySelector<HTMLButtonElement>('.rcb__button--run')?.click();
     await vi.waitFor(() => expect(run).toHaveBeenCalledOnce());
-    const stop = host.querySelector<HTMLButtonElement>('.rcb__button--stop');
+    const stop = host.querySelector<HTMLButtonElement>('.rcb__button--run');
     expect(stop?.hidden).toBe(false);
     stop?.click();
     expect(host.querySelector('.rcb')?.getAttribute('data-state')).toBe('cancelled');
@@ -83,7 +83,7 @@ describe("runnable block UI", () => {
     await vi.waitFor(() => expect(run?.disabled).toBe(false));
     run?.click();
     await vi.waitFor(() => expect(contexts).toHaveLength(1));
-    host.querySelector<HTMLButtonElement>(".rcb__button--stop")?.click();
+    host.querySelector<HTMLButtonElement>(".rcb__button--run")?.click();
     expect(host.querySelector(".rcb__output")?.textContent).not.toContain("Server execution cancelled");
     contexts[0]?.onCancellation?.("pending");
     expect(host.querySelector(".rcb__console-meta")?.textContent).toBe("Cancelling");
@@ -173,7 +173,9 @@ describe("runnable block UI", () => {
 
     expect(button?.getAttribute("aria-busy")).toBe("true");
     expect(button?.textContent).toBe("");
-    expect(button?.getAttribute("aria-label")).toBe("Running code");
+    expect(button?.getAttribute("aria-label")).toBe("Stop");
+    expect(button?.disabled).toBe(false);
+    expect(host.querySelectorAll(".rcb__button--run")).toHaveLength(1);
     expect(host.querySelector<SVGElement>(".rcb__button-icon--running")?.hasAttribute("hidden")).toBe(false);
     expect(host.querySelector(".rcb__console-meta")?.textContent).toBe("Running…");
     expect(host.querySelector(".rcb__output")?.textContent).toBe("Waiting for result…");
@@ -515,7 +517,8 @@ it("copies the edited source and reports clipboard failure without losing edits"
   const copy = host.querySelector<HTMLButtonElement>(".rcb__actions button");
   copy?.click();
   await vi.waitFor(() => expect(writeText).toHaveBeenCalledWith("console.log(1)"));
-  expect(host.querySelector(".rcb__status")?.textContent).toBe("Code copied");
+  expect(copy?.getAttribute("aria-label")).toBe("Copied");
+  await vi.waitFor(() => expect(copy?.getAttribute("aria-label")).toBe("Copy code"), { timeout: 2500 });
   writeText.mockRejectedValueOnce(new Error("denied"));
   copy?.click();
   await vi.waitFor(() => expect(host.querySelector(".rcb__notice")?.textContent).toContain("Select the code"));
