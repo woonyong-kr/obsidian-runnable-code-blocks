@@ -316,6 +316,18 @@ for (const [name, code] of [
   });
 }
 
+test("preserves inline HTML handlers and their element receiver in the Worker", async ({ page }) => {
+  await page.goto("/");
+  await page.getByText("Run every language example").click();
+  const lesson = page.locator('.rcb[data-language="web"]');
+  await lesson.locator(".cm-content").fill(`<button onclick="this.textContent='Clicked'" onmousedown="this.setAttribute('data-pressed','yes')">Ready</button>`);
+  await lesson.getByRole("button", { name: "Run code" }).click();
+  await expect(lesson.locator(".rcb__console-meta")).toContainText("Preview ready");
+  const result = lesson.locator(".rcb__preview-frame").contentFrame().locator("#preview").contentFrame();
+  await result.getByRole("button", { name: "Ready" }).click();
+  await expect(result.getByRole("button", { name: "Clicked" })).toHaveAttribute("data-pressed", "yes");
+});
+
 test("bridges web TypeScript events once and prevents Worker DOM scripts from executing on the frame", async ({ page }) => {
   await page.goto("/");
   await page.getByText("Run every language example").click();
