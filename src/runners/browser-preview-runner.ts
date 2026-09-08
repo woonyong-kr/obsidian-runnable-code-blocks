@@ -306,12 +306,16 @@ async function workerDocument(html: string): Promise<string> {
     script.remove();
   }
   let handlerId = 0;
+  const handlerPrefix = `rcb-handler-${crypto.randomUUID()}-`;
   for (const node of parsed.querySelectorAll("*")) {
+    let handlerClass: string | undefined;
     for (const attribute of [...node.attributes]) {
       if (!attribute.name.toLowerCase().startsWith("on")) continue;
-      const id = node.getAttribute("data-rcb-handler") ?? String(++handlerId);
-      node.setAttribute("data-rcb-handler", id);
-      scripts.push(`document.querySelector('[data-rcb-handler="${id}"]').addEventListener(${JSON.stringify(attribute.name.slice(2))}, function(event) { ${attribute.value} });`);
+      // Worker DOM's attribute selector does not match hydrated attributes consistently.
+      // A private class preserves author IDs and shares one target across inline handlers.
+      handlerClass ??= `${handlerPrefix}${String(++handlerId)}`;
+      node.classList.add(handlerClass);
+      scripts.push(`document.querySelector(${JSON.stringify(`.${handlerClass}`)}).addEventListener(${JSON.stringify(attribute.name.slice(2))}, function(event) { ${attribute.value} });`);
       node.removeAttribute(attribute.name);
     }
   }
