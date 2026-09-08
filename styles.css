@@ -215,15 +215,25 @@
   overflow: auto;
 }
 
-.rcb__editor .cm-content {
+/* Isolate nested editors from Obsidian's source-view folding gutter/layout. */
+.rcb .rcb__editor .cm-editor .cm-content {
   padding: 7px 0 9px;
 }
 
-.rcb__editor .cm-gutters {
+.rcb .rcb__editor .cm-editor .cm-line {
+  padding: 0 8px;
+}
+
+.rcb .rcb__editor .cm-editor .cm-gutters {
+  margin-inline: 0;
   background: transparent;
   border-right: 0;
   color: var(--rcb-text-muted);
-  padding-left: 4px;
+  padding: 0;
+}
+
+.rcb .rcb__editor .cm-lineNumbers .cm-gutterElement {
+  padding-inline: 9px 3px;
 }
 
 .rcb__editor .cm-activeLine,

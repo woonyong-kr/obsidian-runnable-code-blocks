@@ -68,8 +68,31 @@ test("inherits host theme tokens and shows a keyboard focus ring", async ({ page
   await expect(keyword).toHaveCSS("color", "rgb(1, 2, 3)");
   await expect(block).toHaveAttribute("data-theme-test", "mounted-once");
 
+  // Obsidian's source editor styles also reach nested CodeMirror instances.
+  await lesson.evaluate((element) => element.classList.add("markdown-source-view", "mod-cm6"));
+  await page.addStyleTag({ content: `
+    .markdown-source-view.mod-cm6 .cm-gutters { margin-inline-end: 24px; }
+    .markdown-source-view.mod-cm6 .cm-content { padding: 0; }
+    .markdown-source-view.mod-cm6 .cm-line { padding: 0; }
+  ` });
   await lesson.locator(".cm-content").focus();
   await expect(lesson.locator(".rcb__editor")).not.toHaveCSS("box-shadow", "none");
+  const activeRow = await block.evaluate((element) => {
+    const gutter = element.querySelector(".cm-activeLineGutter");
+    const line = element.querySelector(".cm-activeLine");
+    if (!gutter || !line) throw new Error("Active editor row is missing");
+    return {
+      gap: line.getBoundingClientRect().left - gutter.getBoundingClientRect().right,
+      topDifference: line.getBoundingClientRect().top - gutter.getBoundingClientRect().top,
+      gutterBackground: getComputedStyle(gutter).backgroundColor,
+      lineBackground: getComputedStyle(line).backgroundColor,
+      codePadding: getComputedStyle(line).paddingLeft
+    };
+  });
+  expect(activeRow.gap).toBe(0);
+  expect(Math.abs(activeRow.topDifference)).toBeLessThan(1);
+  expect(activeRow.gutterBackground).toBe(activeRow.lineBackground);
+  expect(activeRow.codePadding).toBe("8px");
 });
 
 test("allows 102 numbered lines before the editor itself scrolls", async ({ page }) => {
