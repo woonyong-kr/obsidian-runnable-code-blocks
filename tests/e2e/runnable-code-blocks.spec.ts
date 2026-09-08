@@ -279,9 +279,8 @@ test("bounds real Web Worker output with one truncation marker", async ({ page }
 });
 
 for (const width of [360, 1280]) {
-  test(`keeps controls accessible and copies edits at ${String(width)}px`, async ({ page, context }) => {
+  test(`keeps controls accessible at ${String(width)}px`, async ({ page }) => {
     await page.setViewportSize({width, height: 800});
-    await context.grantPermissions(["clipboard-read", "clipboard-write"]);
     await page.goto("/");
     const lesson = page.locator("[data-featured-test-case]");
     await lesson.locator(".cm-content").fill("console.log(42)");
@@ -306,14 +305,22 @@ for (const width of [360, 1280]) {
       expect(control.above).toBeGreaterThanOrEqual(8);
       expect(control.below).toBeGreaterThanOrEqual(8);
     }
-    await lesson.getByRole("button", {name: "Copy code", exact: true}).click();
-    await expect(lesson.getByRole("button", {name: "Copied", exact: true})).toBeVisible();
-    expect(await page.evaluate(() => navigator.clipboard.readText())).toBe("console.log(42)");
     await expect(lesson.locator(".rcb__editing-hint")).toBeVisible();
     expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true);
   });
 }
 
+
+test("copies edited code to the system clipboard in Chromium", async ({ page, context, browserName }) => {
+  test.skip(browserName !== "chromium", "Playwright clipboard read/write permissions are Chromium-specific");
+  await context.grantPermissions(["clipboard-read", "clipboard-write"]);
+  await page.goto("/");
+  const lesson = page.locator("[data-featured-test-case]");
+  await lesson.locator(".cm-content").fill("console.log(42)");
+  await lesson.getByRole("button", {name: "Copy code", exact: true}).click();
+  await expect(lesson.getByRole("button", {name: "Copied", exact: true})).toBeVisible();
+  expect(await page.evaluate(() => navigator.clipboard.readText())).toBe("console.log(42)");
+});
 
 test("terminates a runaway preview Worker and allows a clean restart", async ({ page }) => {
   test.setTimeout(15_000);
