@@ -239,7 +239,7 @@ For a manual release install, download `main.js`, `manifest.json`, and `styles.c
 ## Support
 
 - Review [runtime providers](docs/runtime-providers.md) before reporting a provider outage.
-- Read the [changelog](CHANGELOG.md) and [verification evidence](docs/verification.md).
+- Read the [changelog](CHANGELOG.md) and [CI results](https://github.com/woonyong-kr/obsidian-runnable-code-blocks/actions).
 - Open a [bug report](https://github.com/woonyong-kr/obsidian-runnable-code-blocks/issues/new) with the language, provider label, exact output, and Obsidian version.
 - Review [Contributing](CONTRIBUTING.md) before submitting source changes.
 
@@ -256,14 +256,14 @@ npm run verify
 npm run smoke:remote
 ```
 
-`npm run verify` runs TypeScript and ESLint checks, Knip unused-code analysis, the covered unit suite, a fresh Chromium E2E build, release-policy validation, and an npm package dry run. `npm run smoke:remote` intentionally submits the public sample programs to third-party providers, so results remain provider-dependent.
+`npm run verify` runs TypeScript and ESLint checks, Knip unused-code analysis, the unit suite, a fresh Chromium E2E build, release-policy validation, and an npm package dry run. Coverage is optional through `npm run test:coverage`. `npm run smoke:remote` intentionally submits the public sample programs to third-party providers, so results remain provider-dependent.
 
 The build creates:
 
 - `main.js`, `manifest.json`, and `styles.css` for Obsidian;
 - `dist-site/` for the static browser adapter.
 
-Provider URLs, compiler selection, request bodies, and response parsing live only in `src/runners/*-runner.ts`. Provider order is in `src/runner-composition.ts`; public support claims are in `src/supported-languages.ts`; deterministic samples are in `src/language-examples.ts`. See [Contributing](CONTRIBUTING.md), the [design system](docs/design-system.md), and [verification evidence](docs/verification.md).
+Provider URLs, compiler selection, request bodies, and response parsing live only in `src/runners/*-runner.ts`. Provider order is in `src/runner-composition.ts`; public support claims are in `src/supported-languages.ts`; deterministic samples are in `src/language-examples.ts`. See [Contributing](CONTRIBUTING.md), the [design system](docs/design-system.md), and [CI results](https://github.com/woonyong-kr/obsidian-runnable-code-blocks/actions).
 
 ## License
 

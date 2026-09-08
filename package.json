@@ -12,12 +12,13 @@
     "dev": "node esbuild.config.mjs",
     "check": "tsc --noEmit && eslint src tests site local-runner/src local-runner/tests && node --check scripts/verify-release.mjs",
     "knip": "knip",
-    "test": "vitest run --coverage",
+    "test": "vitest run",
     "test:e2e": "playwright test",
     "smoke:kotlin": "tsx scripts/smoke-remote.ts kotlin",
     "smoke:remote": "tsx scripts/smoke-remote.ts",
     "verify:release": "node scripts/verify-release.mjs",
-    "verify": "npm run check && npm run knip && npm test && npm run build && npm run verify:release && npm run test:e2e && npm pack --dry-run"
+    "verify": "npm run check && npm run knip && npm test && npm run build && npm run verify:release && npm run test:e2e && npm pack --dry-run",
+    "test:coverage": "vitest run --coverage"
   },
   "knip": {
     "entry": [
