@@ -213,7 +213,7 @@
 }
 
 .rcb__editor:focus-within {
-  box-shadow: inset 0 0 0 var(--rcb-focus-width) var(--background-modifier-border-focus, var(--rcb-accent));
+  box-shadow: inset var(--rcb-focus-width) 0 0 var(--rcb-accent);
 }
 
 .rcb__editor .cm-scroller,
