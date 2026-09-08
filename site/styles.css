@@ -309,7 +309,7 @@
   padding: 0;
 }
 
-.rcb-site__all-examples summary {
+.rcb-site__all-examples > summary {
   align-items: center;
   cursor: pointer;
   display: flex;
@@ -320,17 +320,17 @@
   padding: 20px 0;
 }
 
-.rcb-site__all-examples summary::-webkit-details-marker {
+.rcb-site__all-examples > summary::-webkit-details-marker {
   display: none;
 }
 
-.rcb-site__all-examples summary span:last-child {
+.rcb-site__all-examples > summary span:last-child {
   color: #59616b;
   font-size: 11px;
   font-weight: 500;
 }
 
-.rcb-site__all-examples[open] summary {
+.rcb-site__all-examples[open] > summary {
   border-bottom: 1px solid #d9dce1;
 }
 
@@ -385,7 +385,7 @@
   .rcb-site__benefits article + article,
   .rcb-site__language,
   .rcb-site__all-examples,
-  .rcb-site__all-examples[open] summary {
+  .rcb-site__all-examples[open] > summary {
     border-color: #43454a;
   }
 
@@ -399,7 +399,7 @@
   .rcb-site__shortcut,
   .rcb-site__language code,
   .rcb-site__language span,
-  .rcb-site__all-examples summary span:last-child,
+  .rcb-site__all-examples > summary span:last-child,
   .rcb-site__footer {
     color: #a8adb5;
   }

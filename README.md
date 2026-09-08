@@ -20,17 +20,19 @@
   <a href="https://community.obsidian.md/plugins/runnable-code-blocks">View the Community page</a>
 </p>
 
-![Runnable Code Blocks editing and running a portable Markdown example in Obsidian and the static adapter.](docs/assets/runnable-code-blocks-demo.gif)
+![Runnable Code Blocks editing, running, interacting with, and copying a React example in the browser adapter.](docs/assets/runnable-code-blocks-demo.gif)
 
-![Runnable Code Blocks showing Kotlin and JavaScript editors in a sharp 16:9 Obsidian capture.](docs/assets/runnable-code-blocks-preview.png)
+Captured from the current browser adapter in Chromium on September 8, 2026. This demonstrates the shared editor and execution UI; it is not an Obsidian runtime recording.
+
+![Runnable Code Blocks showing the React editor, copy action, and interactive output in the browser adapter.](docs/assets/runnable-code-blocks-preview.png)
 
 Runnable Code Blocks keeps the explanation, the experiment, and the result in one note. Readers edit a temporary copy, press **Run**, and see exactly which browser, isolated container, or named public provider produced the output; the Markdown source stays portable and unchanged.
 
 - **24 exact runnable fences** — 21 programming languages plus interactive JavaScript, TypeScript, and React documents.
 - **Graceful provider fallback** — browser-native runners work immediately; prepared container languages can use a private localhost companion or an explicitly configured personal compiler before named public providers.
 - **Portable Markdown** — the document stores ordinary `run-<language>` fences instead of plugin-specific state.
-- **Disposable editing** — change and run a sample freely; **Reset** or reopening the rendered note restores the Markdown source.
-- **Visible execution boundaries** — every result names the browser or third-party provider that actually ran it.
+- **Keep a useful change** — edit and run a temporary copy, then use **Copy code** to keep it. **Reset** or reopening the rendered note restores the Markdown source.
+- **Readable results** — see the outcome first; expand **Execution details** for timing and the provider that ran the code.
 
 ## At a glance
 
@@ -129,9 +131,9 @@ Version 0.7.0 defines the following stable fences. “Local” means the optiona
 | `run-sql` | Wandbox | SQLite container |
 | `run-html` | Sandboxed preview iframe | — |
 | `run-css` | Sandboxed preview iframe | — |
-| `run-web` | Interactive isolated iframe | — |
-| `run-web-ts` | Sucrase → interactive isolated iframe | — |
-| `run-react` | React + Sucrase → interactive isolated iframe | — |
+| `run-web` | Terminable Worker + sandboxed DOM bridge | — |
+| `run-web-ts` | Sucrase → Worker + sandboxed DOM bridge | — |
+| `run-react` | React + Sucrase → Worker + sandboxed DOM bridge | — |
 | `run-kotlin` | Kotlin Playground | Kotlin/JVM container |
 | `run-java` | Wandbox | Java container |
 | `run-c` | Wandbox | GCC container |
@@ -156,10 +158,11 @@ Code runs only after **Run** or the keyboard shortcut. Treat every runnable bloc
 - Existing settings that explicitly chose remote-first keep that order. Remote execution can be disabled without disabling browser or local execution.
 - JavaScript and transpiled TypeScript run in a fresh disposable Web Worker with a five-second timeout. Common direct network globals are shadowed, but the Worker is a lifecycle boundary rather than a security sandbox; run only code you trust.
 - HTML and CSS render in an opaque sandboxed iframe. Their authored scripts remain blocked by a restrictive Content Security Policy; only the nonce-bound internal height reporter can run so the result can expand without an internal scrollbar. CSS is applied to a reusable card, button, and text specimen.
-- Interactive `run-web` documents may use inline HTML, CSS, and JavaScript inside a fresh opaque-origin iframe. `run-web-ts` transpiles `<script type="text/typescript">` blocks before using the same sandbox.
+- Interactive `run-web` documents run inline JavaScript in a dedicated Worker and render HTML/CSS through a restricted DOM bridge in a fresh opaque-origin iframe. `run-web-ts` transpiles `<script type="text/typescript">` blocks before using the same sandbox.
 - `run-react` transpiles a self-contained JSX or TSX module with Sucrase and mounts its default export with bundled React and ReactDOM. Only `react`, `react-dom`, and `react-dom/client` imports are available; no package is downloaded while running a note.
 - All interactive previews block Fetch/XHR/WebSocket calls, subresource loading, forms, popups, top navigation, objects, and same-origin access. A per-run token authenticates every relayed message, the outer frame enforces the same output cap independently, and both frame layers use a no-referrer policy.
-- Interactive DOM previews share Obsidian's renderer process. A script that blocks the event loop, such as `while (true) {}`, cannot be force-stopped by the plugin; close or reload the affected view and run only trusted examples.
+- **Stop** terminates the interactive preview Worker. A heartbeat watchdog also stops unresponsive code, including infinite loops, so you can edit and run again. The DOM bridge supports a restricted subset of browser APIs; arbitrary DOM libraries, canvas, and external scripts are not supported.
+- For compatible local companions and personal compilers, **Stop** requests server cancellation and waits for cleanup acknowledgement. An unknown cleanup result is not shown as confirmed cancellation.
 - Kotlin Playground, Wandbox, SwiftFiddle, and DartPad receive source only when their adapter is selected.
 - The Community Plugin does not access the filesystem, spawn local processes, install runtimes, or modify `PATH`. The optional companion is a separately installed release asset and uses only the local container engine.
 

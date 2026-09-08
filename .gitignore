@@ -6,3 +6,6 @@ main.js
 local-runner/dist/
 *.log
 .DS_Store
+
+# Rebuilt from tracked source frames; public copy lives in docs/assets/.
+demo/dist/
