@@ -155,7 +155,7 @@ export class BrowserPreviewRunner implements CodeRunner {
     return this.language === "react" || this.language === "web" || this.language === "web-ts"
       ? {
           available: true,
-          detail: "대화형 코드는 fetch/XHR/WebSocket, 외부 리소스, 팝업, form 제출, top navigation 및 same-origin 접근이 차단된 iframe에서 실행됩니다."
+          detail: "Interactive code runs in an isolated frame. Network requests, external resources, popups, form submission, top navigation, and same-origin access are blocked."
         }
       : {
           available: true,

@@ -160,7 +160,8 @@ test("uses the configured personal compiler before Wandbox for Java", async ({ p
   await runButton.click();
 
   await expect(lesson.locator(".rcb__output")).toContainText("personal-java-ok");
-  await expect(lesson.locator(".rcb__console-meta")).toContainText("Woon personal compiler · java");
+  await lesson.getByText("Execution details", { exact: true }).click();
+  await expect(lesson.locator(".rcb__diagnostic-text")).toContainText("Woon personal compiler · java");
   expect(wandboxRequests).toEqual([]);
 });
 
@@ -247,8 +248,24 @@ test("bounds real Web Worker output with one truncation marker", async ({ page }
   );
   await lesson.getByRole("button", { name: "Run code" }).click();
   await expect(lesson.locator(".rcb__console-meta")).toContainText("Success");
-  await expect(lesson.locator(".rcb__console-meta")).toContainText("Web Worker");
+  await lesson.getByText("Execution details", { exact: true }).click();
+  await expect(lesson.locator(".rcb__diagnostic-text")).toContainText("Web Worker");
   const output = await lesson.locator(".rcb__output").textContent();
 
   expect(output?.split(OUTPUT_LIMITS.marker)).toHaveLength(2);
 });
+
+for (const width of [360, 1280]) {
+  test(`keeps controls accessible and copies edits at ${String(width)}px`, async ({ page, context }) => {
+    await page.setViewportSize({width, height: 800});
+    await context.grantPermissions(["clipboard-read", "clipboard-write"]);
+    await page.goto("/");
+    const lesson = page.locator("[data-featured-test-case]");
+    await lesson.locator(".cm-content").fill("console.log(42)");
+    await lesson.getByRole("button", {name: "Copy code", exact: true}).click();
+    await expect(lesson.getByRole("button", {name: "Copied", exact: true})).toBeVisible();
+    expect(await page.evaluate(() => navigator.clipboard.readText())).toBe("console.log(42)");
+    await expect(lesson.locator(".rcb__editing-hint")).toBeVisible();
+    expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true);
+  });
+}

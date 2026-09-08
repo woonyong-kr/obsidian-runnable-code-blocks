@@ -1,7 +1,7 @@
 # Runnable Code Blocks
 
 <p align="center">
-  <a href="obsidian://show-plugin?id=runnable-code-blocks"><img alt="Obsidian Community Plugin" src="https://img.shields.io/badge/Obsidian-Community_plugin-7C3AED?logo=obsidian" /></a>
+  <a href="https://github.com/woonyong-kr/obsidian-runnable-code-blocks/releases/latest"><img alt="Manual release installation" src="https://img.shields.io/badge/Obsidian-Manual_install-7C3AED?logo=obsidian" /></a>
   <a href="https://github.com/woonyong-kr/obsidian-runnable-code-blocks/actions/workflows/ci.yml"><img alt="Verify" src="https://github.com/woonyong-kr/obsidian-runnable-code-blocks/actions/workflows/ci.yml/badge.svg" /></a>
   <a href="https://github.com/woonyong-kr/obsidian-runnable-code-blocks/releases/latest"><img alt="Latest release" src="https://img.shields.io/github/v/release/woonyong-kr/obsidian-runnable-code-blocks?sort=semver" /></a>
   <a href="LICENSE"><img alt="License: MIT" src="https://img.shields.io/badge/License-MIT-blue.svg" /></a>
@@ -13,7 +13,7 @@
 </p>
 
 <p align="center">
-  <a href="obsidian://show-plugin?id=runnable-code-blocks">Add to Obsidian</a>
+  <a href="https://github.com/woonyong-kr/obsidian-runnable-code-blocks/releases/latest">Install from a release</a>
   ·
   <a href="https://woonyong-kr.github.io/obsidian-runnable-code-blocks/">Try the live editor</a>
   ·
@@ -44,15 +44,12 @@ Runnable Code Blocks keeps the explanation, the experiment, and the result in on
 
 ## Try it in 60 seconds
 
-1. Open [Runnable Code Blocks in Obsidian](obsidian://show-plugin?id=runnable-code-blocks), then install and enable it.
-2. Paste this into a note:
+1. Install from the latest GitHub release: copy `main.js`, `manifest.json`, and `styles.css` into `.obsidian/plugins/runnable-code-blocks/`, reload Obsidian, then enable the plugin. Community listing is pending; use the [live editor](https://woonyong-kr.github.io/obsidian-runnable-code-blocks/) for an installation-free trial.
+2. Paste this browser-only example into a note:
 
 ````markdown
-```run-kotlin
-fun main() {
-    val note = "Obsidian"
-    println("Hello from $note!")
-}
+```run-javascript
+console.log("Hello from Obsidian!");
 ```
 ````
 
@@ -227,7 +224,7 @@ When a public provider changes, its adapter can be repaired and released without
 
 ## Installation and compatibility
 
-Install from **Settings → Community plugins → Browse → Runnable Code Blocks**. Version 0.7.0 supports Obsidian 1.13.0 or later on desktop and mobile. Local container execution is desktop-only and opt-in; all other adapters keep their existing platform support.
+Community listing is pending. Install from the GitHub release as described below. Version 0.7.0 supports Obsidian 1.13.0 or later on desktop and mobile. Local container execution is desktop-only and opt-in; all other adapters keep their existing platform support.
 
 For a manual release install, download `main.js`, `manifest.json`, and `styles.css` from the [latest release](https://github.com/woonyong-kr/obsidian-runnable-code-blocks/releases/latest) into `.obsidian/plugins/runnable-code-blocks/`, then reload Obsidian.
 

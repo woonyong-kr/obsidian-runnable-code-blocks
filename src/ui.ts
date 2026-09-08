@@ -78,7 +78,9 @@ export function mountRunnableBlock(host: HTMLElement, spec: RunnableBlockSpec): 
   const actions = element(toolbar, "div", "rcb__actions");
   const status = element(actions, "span", "rcb__status rcb__sr-only", "Checking runner availability");
   status.setAttribute("aria-live", "polite");
-  const resetButton = element(actions, "button", "rcb__button rcb__button--secondary", "Reset");
+  const copyButton = element(actions, "button", "rcb__button rcb__button--secondary", "Copy code");
+  copyButton.type = "button";
+  const resetButton = element(actions, "button", "rcb__button rcb__button--secondary rcb__button--reset", "Reset");
   resetButton.type = "button";
   resetButton.hidden = true;
   const runButton = element(actions, "button", "rcb__button rcb__button--run");
@@ -90,13 +92,15 @@ export function mountRunnableBlock(host: HTMLElement, spec: RunnableBlockSpec): 
   const runningIcon = svgIcon(runButton, "M10 3.25a6.75 6.75 0 1 1-5.4 2.7", "rcb__button-icon rcb__button-icon--running");
   runningIcon.setAttribute("hidden", "");
 
-  const retryButton = element(actions, "button", "rcb__button rcb__button--retry", "다시 확인");
+  const retryButton = element(actions, "button", "rcb__button rcb__button--retry", "Check again");
   retryButton.type = "button";
   retryButton.hidden = true;
-  const stopButton = element(actions, "button", "rcb__button rcb__button--stop", "중단");
+  const stopButton = element(actions, "button", "rcb__button rcb__button--stop", "Stop");
   stopButton.type = "button";
   stopButton.hidden = true;
   const editorHost = element(root, "div", "rcb__editor");
+  const editingHint = element(root, "div", "rcb__editing-hint", "Temporary edits · Copy code to keep your changes.");
+  editingHint.hidden = true;
   const notice = element(root, "div", "rcb__notice");
   notice.hidden = true;
   const consolePanel = element(root, "section", "rcb__console");
@@ -104,6 +108,9 @@ export function mountRunnableBlock(host: HTMLElement, spec: RunnableBlockSpec): 
   const consoleHeader = element(consolePanel, "header", "rcb__console-header");
   const consoleTitle = element(consoleHeader, "span", "rcb__console-title", "Output");
   const consoleMeta = element(consoleHeader, "span", "rcb__console-meta", "");
+  const diagnostics = element(consolePanel, "details", "rcb__details");
+  element(diagnostics, "summary", "", "Execution details");
+  const diagnosticText = element(diagnostics, "div", "rcb__diagnostic-text");
   const output = element(consolePanel, "pre", "rcb__output", "");
   output.setAttribute("aria-label", "Execution output");
   output.setAttribute("role", "log");
@@ -126,6 +133,8 @@ export function mountRunnableBlock(host: HTMLElement, spec: RunnableBlockSpec): 
 
   const setDirty = (dirty: boolean) => {
     resetButton.hidden = !dirty;
+    editingHint.hidden = !dirty;
+    copyButton.textContent = "Copy code";
     root.dataset.dirty = dirty ? "true" : "false";
   };
 
@@ -205,6 +214,7 @@ export function mountRunnableBlock(host: HTMLElement, spec: RunnableBlockSpec): 
       environmentName.textContent = environmentLabel(spec.runner.environment);
       consolePanel.hidden = false;
       consoleTitle.textContent = "Output";
+      diagnosticText.textContent = availabilityDetail;
       consoleMeta.textContent = "Running…";
       consoleMeta.title = availabilityDetail;
       output.hidden = false;
@@ -224,7 +234,8 @@ export function mountRunnableBlock(host: HTMLElement, spec: RunnableBlockSpec): 
         status.textContent = `${outcome} in ${duration}`;
         status.title = result.provider ?? availabilityDetail;
         status.setAttribute("aria-label", status.textContent);
-        consoleMeta.textContent = `${outcome} · ${duration}${result.provider ? ` · ${result.provider}` : ""}`;
+        consoleMeta.textContent = outcome;
+        diagnosticText.textContent = `${duration} · ${result.provider ?? availabilityDetail}`;
         consoleMeta.title = result.provider ?? "";
       };
       const text = resultText(result);
@@ -262,7 +273,7 @@ export function mountRunnableBlock(host: HTMLElement, spec: RunnableBlockSpec): 
           finalizeResult();
           status.textContent = "Preview ready";
           status.setAttribute("aria-label", "Preview ready");
-          consoleMeta.textContent = `Preview ready${result.provider ? ` · ${result.provider}` : ""}`;
+          consoleMeta.textContent = "Preview ready";
         }
       } else {
         finalizeResult();
@@ -276,7 +287,7 @@ export function mountRunnableBlock(host: HTMLElement, spec: RunnableBlockSpec): 
           if (!lifecycle.disposed) applyAvailabilityState();
         }, Math.min(2_147_483_647, retryAt - Date.now()));
         available = false;
-        availabilityDetail = error.retryAfterMs ? `${error.message} ${String(Math.ceil(error.retryAfterMs / 1000))}초 후 다시 확인할 수 있어요.` : error.message;
+        availabilityDetail = error.retryAfterMs ? `${error.message} Try again in ${String(Math.ceil(error.retryAfterMs / 1000))} seconds.` : error.message;
         consolePanel.hidden = true;
         applyAvailabilityState();
         return;
@@ -311,8 +322,8 @@ export function mountRunnableBlock(host: HTMLElement, spec: RunnableBlockSpec): 
     consoleMeta.textContent = "Cancelled";
     output.hidden = false;
     output.textContent = spec.runner.environment === "remote"
-      ? "응답 대기를 취소했습니다. 서버 작업의 종료 여부는 확인되지 않았습니다."
-      : "실행 또는 preview를 중단했습니다.";
+      ? "Stopped waiting for a response. The remote job may still be running."
+      : "Execution or preview stopped.";
   });
   retryButton.addEventListener("click", () => { if (!running && !checkingAvailability) void refreshAvailability(); });
 
@@ -323,6 +334,14 @@ export function mountRunnableBlock(host: HTMLElement, spec: RunnableBlockSpec): 
     () => void run(),
     (value) => setDirty(value !== editorInitialCode)
   );
+  copyButton.addEventListener("click", () => {
+    copyButton.disabled = true;
+    void Promise.resolve().then(() => navigator.clipboard.writeText(withoutTrailingDisplayLines(editor.getValue()))).then(() => {
+      if (!lifecycle.disposed) { copyButton.textContent = "Copied"; status.textContent = "Code copied"; }
+    }).catch(() => {
+      if (!lifecycle.disposed) { notice.hidden = false; notice.textContent = "Copy unavailable. Select the code and copy it with your keyboard."; }
+    }).finally(() => { if (!lifecycle.disposed) copyButton.disabled = false; });
+  });
   runButton.addEventListener("click", () => { void run(); });
   resetButton.addEventListener("click", () => {
     if (running) return;
@@ -341,6 +360,8 @@ export function mountRunnableBlock(host: HTMLElement, spec: RunnableBlockSpec): 
     preview.hidden = true;
     consoleTitle.textContent = "Output";
     consoleMeta.textContent = "";
+    diagnosticText.textContent = "";
+    diagnostics.open = false;
     consoleMeta.title = "";
     consolePanel.hidden = true;
     setDirty(false);

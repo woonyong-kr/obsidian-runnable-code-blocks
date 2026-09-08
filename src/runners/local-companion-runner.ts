@@ -1,3 +1,4 @@
+export const DEFAULT_LOCAL_RUNNER_ENDPOINT = "http://127.0.0.1:17171";
 import type { CodeRunner, RunContext, RunResult, RunnerAvailability } from "../contracts";
 import { fetchWithTimeout, type FetchLike, unavailableFetch } from "./http-client";
 import { ProviderUnavailableError, unknownRemoteFailure } from "./provider-errors";
@@ -111,10 +112,10 @@ export class LocalCompanionRunner implements CodeRunner {
 export function normalizeLoopbackEndpoint(value: string): string {
   const url = new URL(value.trim());
   if (url.protocol !== "http:" || (url.hostname !== "127.0.0.1" && url.hostname !== "localhost")) {
-    throw new Error("Local runner endpoint는 http://127.0.0.1 또는 http://localhost만 허용합니다.");
+    throw new Error("Use an http://127.0.0.1 or http://localhost endpoint.");
   }
   if (url.username || url.password || url.pathname !== "/" || url.search || url.hash) {
-    throw new Error("Local runner endpoint에는 인증 정보, 경로, query, fragment를 넣을 수 없습니다.");
+    throw new Error("Remove credentials, paths, query parameters, and fragments.");
   }
   return url.origin;
 }

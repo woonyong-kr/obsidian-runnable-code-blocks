@@ -17,7 +17,7 @@ describe("LocalCompanionRunner", () => {
     expect(normalizeLoopbackEndpoint("http://127.0.0.1:17171")).toBe("http://127.0.0.1:17171");
     expect(normalizeLoopbackEndpoint("http://localhost:17171")).toBe("http://localhost:17171");
     expect(() => normalizeLoopbackEndpoint("https://runner.example.com")).toThrow("127.0.0.1");
-    expect(() => normalizeLoopbackEndpoint("http://127.0.0.1:17171/path")).toThrow("경로");
+    expect(() => normalizeLoopbackEndpoint("http://127.0.0.1:17171/path")).toThrow("paths");
   });
 
   it("preflights capabilities and returns a validated local result", async () => {

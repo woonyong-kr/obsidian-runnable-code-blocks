@@ -7,7 +7,7 @@
   --rcb-success: var(--text-success, var(--color-green, var(--text-normal, #176b35)));
   --rcb-text: var(--text-normal, #1f2328);
   --rcb-text-muted: var(--text-muted, #626a73);
-  --rcb-toolbar: var(--background-secondary-alt, #f0f1f3);
+  --rcb-toolbar: var(--background-primary, #ffffff);
   --rcb-font-interface: var(--font-interface, Inter, ui-sans-serif, sans-serif);
   --rcb-font-mono: var(--font-monospace, "JetBrains Mono", "SFMono-Regular", Consolas, monospace);
   --rcb-font-small: var(--font-ui-smaller, 11px);
@@ -341,3 +341,16 @@
     animation: none;
   }
 }
+
+.rcb__details, .rcb__editing-hint {
+  padding: 8px 12px;
+  color: var(--rcb-text-muted);
+  font-size: var(--rcb-font-small);
+  line-height: 1.5;
+  border-top: 1px solid var(--rcb-border);
+}
+.rcb__details summary { cursor: pointer; }
+.rcb__diagnostic-text { padding-top: 8px; overflow-wrap: anywhere; }
+.rcb .rcb__editing-hint[hidden] { display: none; }
+.rcb__actions { flex-wrap: wrap; }
+@media (pointer: coarse) { .rcb .rcb__button { min-height: 44px; min-width: 44px; } }

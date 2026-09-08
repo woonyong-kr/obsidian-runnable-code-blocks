@@ -1,3 +1,4 @@
+import { normalizeLoopbackEndpoint, DEFAULT_LOCAL_RUNNER_ENDPOINT } from "./runners/local-companion-runner";
 import { App, Plugin, PluginSettingTab, SecretComponent, type SettingDefinitionItem } from "obsidian";
 import type { ExecutionOrder } from "./runner-composition";
 import { supportedLanguagesDescription } from "./supported-languages";
@@ -10,7 +11,6 @@ export interface RunnableCodeBlocksSettings {
 }
 
 export const LOCAL_RUNNER_SECRET_ID = "runnable-code-blocks-local-runner-token";
-const DEFAULT_LOCAL_RUNNER_ENDPOINT = "http://127.0.0.1:17171";
 
 export const DEFAULT_SETTINGS: RunnableCodeBlocksSettings = {
   executionOrder: "private-first",
@@ -155,16 +155,6 @@ function normalizeLocalEndpoint(value: unknown): string {
 }
 
 function validateLocalEndpoint(value: string): string | undefined {
-  try {
-    const url = new URL(value.trim());
-    if (url.protocol !== "http:" || (url.hostname !== "127.0.0.1" && url.hostname !== "localhost")) {
-      return "Use an http://127.0.0.1 or http://localhost endpoint.";
-    }
-    if (url.username || url.password || url.pathname !== "/" || url.search || url.hash) {
-      return "Remove credentials, paths, query parameters, and fragments.";
-    }
-    return undefined;
-  } catch {
-    return "Enter a valid loopback URL.";
-  }
+  try { normalizeLoopbackEndpoint(value); return undefined; }
+  catch (error) { return error instanceof Error ? error.message : "Enter a valid loopback URL."; }
 }

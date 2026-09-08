@@ -90,7 +90,7 @@ describe("runnable block UI", () => {
     ).toEqual(["1", "2", "3"]);
     expect(host.querySelector(".rcb__status")?.textContent).toBe("Ready to run");
     expect(host.querySelector<HTMLElement>(".rcb__console")?.hidden).toBe(true);
-    expect(host.querySelector<HTMLButtonElement>(".rcb__button--secondary")?.hidden).toBe(true);
+    expect(host.querySelector<HTMLButtonElement>(".rcb__button--reset")?.hidden).toBe(true);
     mounted.dispose();
     expect(host.querySelector(".rcb")).toBeNull();
   });
@@ -154,7 +154,9 @@ describe("runnable block UI", () => {
     expect(button?.getAttribute("aria-busy")).toBe("false");
     expect(button?.textContent).toBe("");
     expect(button?.getAttribute("aria-label")).toBe("Run code");
-    expect(host.querySelector(".rcb__console-meta")?.textContent).toBe("Success · 12 ms · Test runner");
+    expect(host.querySelector(".rcb__console-meta")?.textContent).toBe("Success");
+    expect(host.querySelector(".rcb__diagnostic-text")?.textContent).toContain("Test runner");
+    expect(host.querySelector<HTMLDetailsElement>(".rcb__details")?.open).toBe(false);
   });
 
   it("clears previous result metadata before showing a later runner error", async () => {
@@ -175,8 +177,8 @@ describe("runnable block UI", () => {
     await Promise.resolve();
     const button = host.querySelector<HTMLButtonElement>(".rcb__button--run");
     button?.click();
-    await vi.waitFor(() => expect(host.querySelector(".rcb__console-meta")?.textContent).toBe("Success · 2 ms · First provider"));
-    expect(host.querySelector(".rcb__console-meta")?.textContent).toBe("Success · 2 ms · First provider");
+    await vi.waitFor(() => expect(host.querySelector(".rcb__console-meta")?.textContent).toBe("Success"));
+    expect(host.querySelector(".rcb__console-meta")?.textContent).toBe("Success");
 
     button?.click();
     await vi.waitFor(() => expect(host.querySelector(".rcb__console-meta")?.textContent).toBe("Runner error"));
@@ -474,4 +476,20 @@ describe("runnable block UI", () => {
     expect(host.querySelector<HTMLElement>(".rcb__console")?.hidden).toBe(true);
     expect(host.querySelector(".rcb__status")?.textContent).toBe("Ready to run");
   });
+});
+
+it("copies the edited source and reports clipboard failure without losing edits", async () => {
+  const host = document.body.appendChild(document.createElement("div"));
+  const writeText = vi.spyOn(navigator.clipboard, "writeText").mockResolvedValue(undefined);
+  const mounted = mountRunnableBlock(host, { code: "console.log(1)", language: "javascript", runner: createRunner() });
+  const copy = host.querySelector<HTMLButtonElement>(".rcb__actions button");
+  copy?.click();
+  await vi.waitFor(() => expect(writeText).toHaveBeenCalledWith("console.log(1)"));
+  expect(host.querySelector(".rcb__status")?.textContent).toBe("Code copied");
+  writeText.mockRejectedValueOnce(new Error("denied"));
+  copy?.click();
+  await vi.waitFor(() => expect(host.querySelector(".rcb__notice")?.textContent).toContain("Select the code"));
+  expect(host.querySelector(".cm-content")?.textContent).toContain("console.log(1)");
+  mounted.dispose();
+  writeText.mockRestore();
 });

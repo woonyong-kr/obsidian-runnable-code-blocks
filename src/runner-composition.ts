@@ -5,7 +5,7 @@ import { BrowserPreviewRunner } from "./runners/browser-preview-runner";
 import { FallbackRunner } from "./runners/fallback-runner";
 import type { FetchLike } from "./runners/http-client";
 import { BrowserJavaScriptRunner } from "./runners/javascript-runner";
-import { LocalCompanionRunner } from "./runners/local-companion-runner";
+import { LocalCompanionRunner, DEFAULT_LOCAL_RUNNER_ENDPOINT } from "./runners/local-companion-runner";
 import { PersonalCompilerRunner } from "./runners/personal-compiler-runner";
 import { BrowserTypeScriptRunner } from "./runners/typescript-runner";
 import { ProviderUnavailableError } from "./runners/provider-errors";
@@ -117,15 +117,18 @@ export function composeLanguageRunner(
   const browser = browserRunners(language);
   const local = options.localExecutionEnabled === true && language.localAdapter !== undefined
     ? new LocalCompanionRunner({
-        endpoint: options.localRunnerEndpoint ?? "http://127.0.0.1:17171",
+        endpoint: options.localRunnerEndpoint ?? DEFAULT_LOCAL_RUNNER_ENDPOINT,
         fetch: options.fetch,
         language: language.id,
         token: options.localRunnerToken ?? ""
       })
     : null;
-  const personalCompiler = options.personalCompilerEnabled === true && language.localAdapter !== undefined
+  if (options.personalCompilerEnabled && !options.personalCompilerEndpoint?.trim()) {
+    throw new Error("An explicit personal compiler endpoint is required.");
+  }
+  const personalCompiler = options.personalCompilerEnabled === true && options.personalCompilerEndpoint && language.localAdapter !== undefined
     ? new PersonalCompilerRunner({
-        endpoint: options.personalCompilerEndpoint ?? "https://runner.woonyong.com",
+        endpoint: options.personalCompilerEndpoint,
         fetch: options.fetch,
         language: language.id
       })

@@ -44,7 +44,7 @@
 
 .rcb-site__hero {
   border-bottom: 1px solid #d9dce1;
-  min-height: 680px;
+  min-height: 0;
 }
 
 .rcb-site__nav {
@@ -80,7 +80,7 @@
 
 .rcb-site__hero-copy {
   max-width: 850px;
-  padding: 104px 0 108px;
+  padding: 24px 0;
 }
 
 .rcb-site__eyebrow,
@@ -94,15 +94,15 @@
 }
 
 .rcb-site__hero h1 {
-  font-size: clamp(3.5rem, 9vw, 7rem);
+  font-size: clamp(2rem, 5vw, 3.5rem);
   letter-spacing: -0.065em;
-  line-height: 0.88;
+  line-height: 1.1;
   margin: 24px 0 30px;
 }
 
 .rcb-site__lede {
   color: #59616b;
-  font-size: clamp(1.04rem, 2.4vw, 1.35rem);
+  font-size: 16px;
   line-height: 1.65;
   margin: 0;
   max-width: 760px;
@@ -156,7 +156,7 @@
 }
 
 .rcb-site__showcase {
-  padding: 96px 0 88px;
+  padding: 32px 0 48px;
 }
 
 .rcb-site__section-heading {
@@ -169,7 +169,7 @@
 
 .rcb-site__section-heading h2,
 .rcb-site__support h2 {
-  font-size: clamp(1.8rem, 4vw, 3.15rem);
+  font-size: clamp(1.4rem, 3vw, 2rem);
   letter-spacing: -0.04em;
   line-height: 1.05;
   margin: 10px 0 0;
@@ -193,7 +193,7 @@
 }
 
 .rcb-site__lesson--featured .rcb {
-  box-shadow: 0 18px 44px rgb(31 35 40 / 9%);
+  box-shadow: none;
   margin: 0;
 }
 
@@ -429,11 +429,11 @@
   }
 
   .rcb-site__hero-copy {
-    padding: 72px 0 82px;
+    padding: 24px 0;
   }
 
   .rcb-site__hero h1 {
-    font-size: clamp(3.2rem, 18vw, 5.6rem);
+    font-size: clamp(2rem, 8vw, 3rem);
   }
 
   .rcb-site__nav-link {
@@ -451,7 +451,7 @@
 
   .rcb-site__showcase,
   .rcb-site__support {
-    padding: 68px 0;
+    padding: 32px 0;
   }
 
   .rcb-site__benefits {
