@@ -31,6 +31,22 @@ function svgIcon(parent: Node, pathData: string, className: string): SVGSVGEleme
   return icon;
 }
 
+const COPY_ICON = "M7 6V3h10v11h-3M3 7h10v10H3Z";
+
+function setButtonIcon(button: HTMLButtonElement, label: string, path: string): void {
+  button.title = label;
+  button.setAttribute("aria-label", label);
+  button.replaceChildren();
+  svgIcon(button, path, "rcb__button-icon rcb__button-icon--outline");
+}
+
+function iconButton(parent: Node, className: string, label: string, path: string): HTMLButtonElement {
+  const button = element(parent, "button", `rcb__button ${className}`);
+  button.type = "button";
+  setButtonIcon(button, label, path);
+  return button;
+}
+
 function durationLabel(durationMs: number): string {
   if (durationMs >= 1000) return `${(durationMs / 1000).toFixed(2)} s`;
   return `${String(Math.round(durationMs))} ms`;
@@ -78,10 +94,8 @@ export function mountRunnableBlock(host: HTMLElement, spec: RunnableBlockSpec): 
   const actions = element(toolbar, "div", "rcb__actions");
   const status = element(actions, "span", "rcb__status rcb__sr-only", "Checking runner availability");
   status.setAttribute("aria-live", "polite");
-  const copyButton = element(actions, "button", "rcb__button rcb__button--secondary", "Copy code");
-  copyButton.type = "button";
-  const resetButton = element(actions, "button", "rcb__button rcb__button--secondary rcb__button--reset", "Reset");
-  resetButton.type = "button";
+  const copyButton = iconButton(actions, "rcb__button--secondary", "Copy code", COPY_ICON);
+  const resetButton = iconButton(actions, "rcb__button--secondary rcb__button--reset", "Reset", "M3 3v5h5M3 8a7 7 0 1 1 0 5");
   resetButton.hidden = true;
   const runButton = element(actions, "button", "rcb__button rcb__button--run");
   runButton.type = "button";
@@ -92,11 +106,9 @@ export function mountRunnableBlock(host: HTMLElement, spec: RunnableBlockSpec): 
   const runningIcon = svgIcon(runButton, "M10 3.25a6.75 6.75 0 1 1-5.4 2.7", "rcb__button-icon rcb__button-icon--running");
   runningIcon.setAttribute("hidden", "");
 
-  const retryButton = element(actions, "button", "rcb__button rcb__button--retry", "Check again");
-  retryButton.type = "button";
+  const retryButton = iconButton(actions, "rcb__button--secondary rcb__button--retry", "Check again", "M17 3v5h-5M17 8a7 7 0 1 0 0 5");
   retryButton.hidden = true;
-  const stopButton = element(actions, "button", "rcb__button rcb__button--stop", "Stop");
-  stopButton.type = "button";
+  const stopButton = iconButton(actions, "rcb__button--secondary rcb__button--stop", "Stop", "M4 4h12v12H4Z");
   stopButton.hidden = true;
   const editorHost = element(root, "div", "rcb__editor");
   const editingHint = element(root, "div", "rcb__editing-hint", "Temporary edits · Copy code to keep your changes.");
@@ -134,7 +146,7 @@ export function mountRunnableBlock(host: HTMLElement, spec: RunnableBlockSpec): 
   const setDirty = (dirty: boolean) => {
     resetButton.hidden = !dirty;
     editingHint.hidden = !dirty;
-    copyButton.textContent = "Copy code";
+    setButtonIcon(copyButton, "Copy code", COPY_ICON);
     root.dataset.dirty = dirty ? "true" : "false";
   };
 
@@ -347,7 +359,7 @@ export function mountRunnableBlock(host: HTMLElement, spec: RunnableBlockSpec): 
   copyButton.addEventListener("click", () => {
     copyButton.disabled = true;
     void Promise.resolve().then(() => navigator.clipboard.writeText(withoutTrailingDisplayLines(editor.getValue()))).then(() => {
-      if (!lifecycle.disposed) { copyButton.textContent = "Copied"; status.textContent = "Code copied"; }
+      if (!lifecycle.disposed) { setButtonIcon(copyButton, "Copied", "M4 10l4 4 8-8"); status.textContent = "Code copied"; }
     }).catch(() => {
       if (!lifecycle.disposed) { notice.hidden = false; notice.textContent = "Copy unavailable. Select the code and copy it with your keyboard."; }
     }).finally(() => { if (!lifecycle.disposed) copyButton.disabled = false; });

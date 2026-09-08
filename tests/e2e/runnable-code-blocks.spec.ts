@@ -262,6 +262,27 @@ for (const width of [360, 1280]) {
     await page.goto("/");
     const lesson = page.locator("[data-featured-test-case]");
     await lesson.locator(".cm-content").fill("console.log(42)");
+    const controls = await lesson.locator(".rcb__toolbar button:visible").evaluateAll(buttons => buttons.map(button => {
+      const bounds = button.getBoundingClientRect();
+      const parent = button.closest(".rcb__toolbar");
+      if (!parent) throw new Error("Control is outside its toolbar");
+      const toolbar = parent.getBoundingClientRect();
+      return {
+        label: button.getAttribute("aria-label"),
+        icon: Boolean(button.querySelector("svg")),
+        text: button.textContent.trim(),
+        above: bounds.top - toolbar.top,
+        below: toolbar.bottom - bounds.bottom
+      };
+    }));
+    expect(controls.length).toBeGreaterThanOrEqual(3);
+    for (const control of controls) {
+      expect(control.label).toBeTruthy();
+      expect(control.icon).toBe(true);
+      expect(control.text).toBe("");
+      expect(control.above).toBeGreaterThanOrEqual(8);
+      expect(control.below).toBeGreaterThanOrEqual(8);
+    }
     await lesson.getByRole("button", {name: "Copy code", exact: true}).click();
     await expect(lesson.getByRole("button", {name: "Copied", exact: true})).toBeVisible();
     expect(await page.evaluate(() => navigator.clipboard.readText())).toBe("console.log(42)");
