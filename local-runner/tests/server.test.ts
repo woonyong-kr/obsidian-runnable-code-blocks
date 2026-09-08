@@ -3,6 +3,7 @@ import type { AddressInfo } from "node:net";
 import { afterEach, describe, expect, it } from "vitest";
 import type { ExecutionEngine } from "../src/engine";
 import { createRunnerServer } from "../src/server";
+import { createAsyncHttpServer } from "../src/http-server";
 
 const TOKEN = "test-token-with-32-safe-characters";
 const servers: ReturnType<typeof createRunnerServer>[] = [];
@@ -12,6 +13,22 @@ afterEach(async () => {
 });
 
 describe("local runner HTTP boundary", () => {
+  it("returns a bounded error for a rejected request and accepts the next request", async () => {
+    const server = createAsyncHttpServer(async (request, response) => {
+      await Promise.resolve();
+      if (request.url === "/fail") throw new Error("Private internal detail");
+      response.end("Recovered");
+    });
+    servers.push(server);
+    await new Promise<void>(resolve => server.listen(0, "127.0.0.1", resolve));
+    const address = server.address() as AddressInfo;
+    const endpoint = `http://127.0.0.1:${String(address.port)}`;
+    const failed = await fetch(`${endpoint}/fail`);
+    expect(failed.status).toBe(500);
+    expect(await failed.json()).toEqual({ error: "Internal server error" });
+    expect(await (await fetch(`${endpoint}/healthy`)).text()).toBe("Recovered");
+  });
+
   it("requires authentication and returns prepared capabilities", async () => {
     const endpoint = await listen(fakeEngine());
     await expect(fetch(`${endpoint}/v1/capabilities`)).resolves.toMatchObject({ status: 401 });

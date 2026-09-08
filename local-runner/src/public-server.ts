@@ -1,6 +1,7 @@
 import { createHash } from "node:crypto";
 import { isIP } from "node:net";
-import { createServer, type IncomingMessage, type Server, type ServerResponse } from "node:http";
+import type { IncomingMessage, Server, ServerResponse } from "node:http";
+import { createAsyncHttpServer } from "./http-server";
 import { EngineNotReadyError, ExecutionCancelledError, type ExecutionEngine } from "./engine";
 
 const MAX_SOURCE_BYTES = 32_000;
@@ -44,7 +45,7 @@ export function createPublicRunnerServer(options: PublicRunnerServerOptions): Se
   let active = 0;
   const cancellations = new FixedWindowQuota(60_000);
 
-  return createServer({ requestTimeout: 22_000, headersTimeout: 5_000, connectionsCheckingInterval: 1_000 }, async (request, response) => {
+  return createAsyncHttpServer(async (request, response) => {
     const origin = request.headers.origin;
     setSecurityHeaders(response, origin !== undefined && allowedOrigins.has(origin) ? origin : null);
 

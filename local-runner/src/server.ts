@@ -1,5 +1,6 @@
 import { createHash, timingSafeEqual } from "node:crypto";
-import { createServer, type IncomingMessage, type Server, type ServerResponse } from "node:http";
+import type { IncomingMessage, Server, ServerResponse } from "node:http";
+import { createAsyncHttpServer } from "./http-server";
 import { EngineNotReadyError, ExecutionCancelledError, type ExecutionEngine } from "./engine";
 
 const MAX_SOURCE_BYTES = 256_000;
@@ -19,7 +20,7 @@ export function createRunnerServer(options: RunnerServerOptions): Server {
     state: "running" | "completed" | "cancelled" | "unknown";
     done: Promise<{ status: number; body: unknown }>;
   }>();
-  return createServer({ requestTimeout: 22_000, headersTimeout: 5_000, connectionsCheckingInterval: 1_000 }, async (request, response) => {
+  return createAsyncHttpServer(async (request, response) => {
     setSecurityHeaders(response);
     if (!validHost(request.headers.host) || !authenticated(request, options.token)) {
       sendJson(response, 401, { error: "Unauthorized" });
