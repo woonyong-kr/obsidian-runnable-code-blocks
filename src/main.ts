@@ -24,7 +24,10 @@ class RunnableRenderChild extends MarkdownRenderChild {
   mount(source: string, language: string, registry: RunnerRegistry): void {
     const runner = registry.create(language);
     if (runner === null) throw new Error(`Missing registered runner for ${language}`);
-    this.#mounted = mountRunnableBlock(this.containerEl, { code: source, language, runner });
+    const embed = this.containerEl.closest(".cm-embed-block");
+    this.#mounted = mountRunnableBlock(this.containerEl, { code: source, language, runner }, embed ? {
+      onEditSource: () => embed.querySelector<HTMLElement>(":scope > .embed-actions .edit-block-button")?.click()
+    } : {});
   }
 
   override onunload(): void {

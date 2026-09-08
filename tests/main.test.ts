@@ -54,7 +54,9 @@ describe("Obsidian plugin boundary", () => {
     await plugin.onload();
     const processor = register.mock.calls.find(([fence]) => fence === "run-html")?.[1];
     expect(processor).toBeDefined();
-    const element = document.body.appendChild(document.createElement("div"));
+    const embed = document.body.appendChild(document.createElement("div"));
+    embed.className = "cm-embed-block";
+    const element = embed.appendChild(document.createElement("div"));
     const renderChild: { current: MarkdownRenderChild | null } = { current: null };
     await processor?.("<button>Hello</button>", element, {
       addChild(value) { renderChild.current = value; },
@@ -66,6 +68,19 @@ describe("Obsidian plugin boundary", () => {
     await vi.waitFor(() => {
       expect(element.querySelector(".rcb__button--run")).not.toBeNull();
     });
+
+    // Obsidian appends its edit control after the postprocessor mounts.
+    const hostActions = embed.appendChild(document.createElement("div"));
+    hostActions.className = "embed-actions";
+    const nativeEdit = hostActions.appendChild(document.createElement("button"));
+    nativeEdit.className = "edit-block-button";
+    const editSource = vi.fn();
+    nativeEdit.addEventListener("click", editSource);
+    const actions = Array.from(element.querySelectorAll<HTMLButtonElement>(".rcb__actions button"));
+    expect(actions.filter(button => !button.hidden).map(button => button.getAttribute("aria-label")).slice(0, 3))
+      .toEqual(["Edit source", "Copy code", "Run code"]);
+    actions[0]?.click();
+    expect(editSource).toHaveBeenCalledOnce();
 
     plugin.settings.remoteExecutionEnabled = true;
     await plugin.saveSettings();

@@ -36,26 +36,9 @@
   margin-block: 0;
 }
 
-.cm-embed-block > div > .rcb > .rcb__toolbar {
-  /* Keep the host edit-source action beside Run, including before hover. */
-  padding-inline-end: calc(var(--size-4-3, 12px) + var(--rcb-control-height) + 7px);
-}
-
-.markdown-source-view.mod-cm6 .cm-embed-block:has(> div > .rcb) > .embed-actions {
-  top: calc(var(--size-4-2, 8px) + 1px);
-  inset-inline-end: calc(var(--size-4-3, 12px) + 1px);
-}
-
-.cm-embed-block:has(> div > .rcb) > .embed-actions > .edit-block-button {
-  height: var(--input-height, 30px);
-  width: var(--input-height, 30px);
-  display: flex;
-  align-items: center;
-  justify-content: center;
-}
-
-.markdown-source-view.mod-cm6 .cm-embed-block:has(> div > .rcb):focus-within > .embed-actions {
-  opacity: 1;
+/* The accessible toolbar action delegates to Obsidian's existing edit handler. */
+.cm-embed-block:has(> div > .rcb .rcb__button--source) > .embed-actions {
+  display: none;
 }
 
 .rcb .rcb__button[hidden],
@@ -241,7 +224,8 @@
   line-height: 1.55;
 }
 
-.rcb__editor .cm-scroller {
+.rcb .rcb__editor .cm-editor > .cm-scroller {
+  scrollbar-gutter: auto;
   /* 100 source lines + the two numbered editing lines, including 16px content padding. */
   max-height: var(--rcb-editor-max-height, calc(102lh + 16px));
   overflow: auto;
@@ -270,6 +254,11 @@
 
 .rcb__editor .cm-activeLine,
 .rcb__editor .cm-activeLineGutter {
+  background: transparent;
+}
+
+.rcb__editor:focus-within .cm-activeLine,
+.rcb__editor:focus-within .cm-activeLineGutter {
   background: color-mix(in srgb, var(--rcb-accent) 9%, transparent);
 }
 
