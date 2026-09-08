@@ -408,11 +408,10 @@ for (const [name, code] of [
     const lesson = page.locator("[data-featured-test-case]");
     await lesson.locator(".cm-content").fill(`export default function App() { ${code} return <p>Busy</p>; }`);
     const created = page.waitForEvent("worker");
+    // Subscribe when the Worker appears, even if Playwright is still completing
+    // the click. Keep the UI watchdog and closure observation deadlines unchanged.
+    const closed = created.then((worker) => worker.waitForEvent("close", { timeout: 6_000 }));
     await lesson.getByRole("button", { name: "Run code" }).click();
-    const worker = await created;
-    // The watchdog message remains bounded below; Chromium can report target detachment
-    // later (observed about 4 seconds after creation for native RegExp termination).
-    const closed = worker.waitForEvent("close", { timeout: 6_000 });
     await expect(lesson.locator(".rcb__output")).toContainText("did not respond within 2 seconds", { timeout: 4_000 });
     await closed;
     await expect(lesson.getByRole("button", { name: "Run code" })).toBeEnabled();
