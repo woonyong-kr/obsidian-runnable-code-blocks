@@ -116,8 +116,6 @@ export function mountRunnableBlock(
 
   const retryButton = iconButton(actions, "rcb__button--secondary rcb__button--retry", "Check again", "M17 3v5h-5M17 8a7 7 0 1 0 0 5");
   retryButton.hidden = true;
-  const stopButton = iconButton(actions, "rcb__button--secondary rcb__button--stop", "Stop", "M4 4h12v12H4Z");
-  stopButton.hidden = true;
   const editorHost = element(root, "div", "rcb__editor");
   const editingHint = element(root, "div", "rcb__editing-hint", "Temporary edits · Copy code to keep your changes.");
   editingHint.hidden = true;
@@ -143,6 +141,7 @@ export function mountRunnableBlock(
   let previewActive = false;
   let retryAt = 0;
   let retryTimer: number | undefined;
+  let copyFeedbackTimer: number | undefined;
   root.dataset.state = "checking";
   let available = false;
   let availabilityDetail = "";
@@ -152,6 +151,7 @@ export function mountRunnableBlock(
   let executionController: AbortController | null = null;
 
   const setDirty = (dirty: boolean) => {
+    window.clearTimeout(copyFeedbackTimer);
     resetButton.hidden = !dirty;
     editingHint.hidden = !dirty;
     setButtonIcon(copyButton, "Copy code", COPY_ICON);
@@ -159,20 +159,20 @@ export function mountRunnableBlock(
   };
 
   const setRunning = (value: boolean) => {
-    runButton.disabled = value || !available || Date.now() < retryAt;
-    stopButton.hidden = !value && !previewActive;
+    const active = value || previewActive;
+    runButton.disabled = !active && (!available || Date.now() < retryAt);
     retryButton.disabled = value || checkingAvailability || Date.now() < retryAt;
     resetButton.disabled = value;
-    runButton.setAttribute("aria-busy", value ? "true" : "false");
+    runButton.setAttribute("aria-busy", active ? "true" : "false");
     root.setAttribute("aria-busy", value ? "true" : "false");
-    runIcon.toggleAttribute("hidden", value);
-    runningIcon.toggleAttribute("hidden", !value);
-    runButton.setAttribute("aria-label", value ? "Running code" : "Run code");
-    runButton.title = value ? "Running code" : "Run (⌘/Ctrl+Enter)";
+    runIcon.toggleAttribute("hidden", active);
+    runningIcon.toggleAttribute("hidden", !active);
+    runButton.setAttribute("aria-label", active ? "Stop" : "Run code");
+    runButton.title = active ? "Stop execution" : "Run (⌘/Ctrl+Enter)";
   };
 
   const applyAvailabilityState = () => {
-    runButton.disabled = running || !available || Date.now() < retryAt;
+    setRunning(running);
     retryButton.hidden = available && Date.now() >= retryAt;
     retryButton.disabled = running || checkingAvailability || Date.now() < retryAt;
     status.title = availabilityDetail;
@@ -280,6 +280,11 @@ export function mountRunnableBlock(
         const previewHandle = renderPreview(preview, result.preview, ({ message, type }) => {
           if (!current()) return;
           if (type === "ready") return;
+          if (type === "stopped") {
+            previewActive = false;
+            setRunning(running);
+            return;
+          }
           previewLogs.append(message);
           output.hidden = false;
           if (!flushPending) {
@@ -310,6 +315,8 @@ export function mountRunnableBlock(
       }
     } catch (error) {
       if (!current()) return;
+      disposePreview();
+      preview.hidden = true;
       if (error instanceof ProviderUnavailableError && error.executionState === "not-started") {
         retryAt = Date.now() + (error.retryAfterMs ?? 0);
         window.clearTimeout(retryTimer);
@@ -336,7 +343,7 @@ export function mountRunnableBlock(
     }
   };
 
-  stopButton.addEventListener("click", () => {
+  const stop = () => {
     executionId += 1;
     availabilityRequest += 1;
     checkingAvailability = false;
@@ -348,13 +355,15 @@ export function mountRunnableBlock(
     setRunning(false);
     root.dataset.state = "cancelled";
     status.textContent = "Cancelled";
+    status.setAttribute("aria-label", "Cancelled");
+    status.title = "Execution stopped";
     consolePanel.hidden = false;
     consoleMeta.textContent = "Cancelled";
     output.hidden = false;
     output.textContent = spec.runner.environment !== "browser"
       ? "Stopped waiting for the execution response."
       : "Execution or preview stopped.";
-  });
+  };
   retryButton.addEventListener("click", () => { if (!running && !checkingAvailability) void refreshAvailability(); });
 
   const editor: RunnableEditor = createRunnableEditor(
@@ -365,14 +374,22 @@ export function mountRunnableBlock(
     (value) => setDirty(value !== editorInitialCode)
   );
   copyButton.addEventListener("click", () => {
+    window.clearTimeout(copyFeedbackTimer);
+    setButtonIcon(copyButton, "Copy code", COPY_ICON);
     copyButton.disabled = true;
     void Promise.resolve().then(() => navigator.clipboard.writeText(withoutTrailingDisplayLines(editor.getValue()))).then(() => {
-      if (!lifecycle.disposed) { setButtonIcon(copyButton, "Copied", "M4 10l4 4 8-8"); status.textContent = "Code copied"; }
+      if (!lifecycle.disposed) {
+        window.clearTimeout(copyFeedbackTimer);
+        setButtonIcon(copyButton, "Copied", "M4 10l4 4 8-8");
+        copyFeedbackTimer = window.setTimeout(() => {
+          if (!lifecycle.disposed) setButtonIcon(copyButton, "Copy code", COPY_ICON);
+        }, 1500);
+      }
     }).catch(() => {
       if (!lifecycle.disposed) { notice.hidden = false; notice.textContent = "Copy unavailable. Select the code and copy it with your keyboard."; }
     }).finally(() => { if (!lifecycle.disposed) copyButton.disabled = false; });
   });
-  runButton.addEventListener("click", () => { void run(); });
+  runButton.addEventListener("click", () => { if (running || previewActive) stop(); else void run(); });
   resetButton.addEventListener("click", () => {
     if (running) return;
     executionId += 1;
@@ -406,6 +423,7 @@ export function mountRunnableBlock(
       lifecycle.disposed = true;
       executionId += 1;
       window.clearTimeout(retryTimer);
+      window.clearTimeout(copyFeedbackTimer);
       executionController?.abort();
       disposePreview();
       editor.destroy();
@@ -418,7 +436,7 @@ export function mountRunnableBlock(
 
 interface PreviewMessage {
   message: string;
-  type: "error" | "info" | "log" | "ready" | "warn";
+  type: "error" | "info" | "log" | "ready" | "warn" | "stopped";
 }
 
 interface PreviewHandle {
@@ -488,6 +506,10 @@ function renderPreview(
         window.clearTimeout(readyTimeout);
         resolveReady();
       }
+      return;
+    }
+    if (data.sender === "runnable-code-blocks-container" && data.type === "stopped" && data.token === token) {
+      onMessage({ message: "", type: "stopped" });
       return;
     }
     if (data.sender !== "runnable-code-blocks-preview" || data.token !== token) return;

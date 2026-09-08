@@ -359,6 +359,7 @@ test("copies edited code to the system clipboard in Chromium", async ({ page, co
   await lesson.getByRole("button", {name: "Copy code", exact: true}).click();
   await expect(lesson.getByRole("button", {name: "Copied", exact: true})).toBeVisible();
   expect(await page.evaluate(() => navigator.clipboard.readText())).toBe("console.log(42)");
+  await expect(lesson.getByRole("button", { name: "Copy code", exact: true })).toBeVisible({ timeout: 2500 });
 });
 
 test("terminates a runaway preview Worker and allows a clean restart", async ({ page }) => {

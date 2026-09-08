@@ -32,6 +32,7 @@ export function start(payload: Payload): void {
     for (const bitmap of canvasFrames.values()) bitmap.close();
     canvasFrames.clear();
     if (message) send("error", message);
+    parent.postMessage({ sender: "runnable-code-blocks-preview", type: "stopped" }, "*");
   };
   const watchdog = window.setInterval(() => {
     if (performance.now() - lastHeartbeat > 2_000) {
@@ -43,8 +44,8 @@ export function start(payload: Payload): void {
   }, 250);
   addEventListener("message", (event: MessageEvent<unknown>) => {
     if (event.source === parent && typeof event.data === "object" && event.data !== null && (event.data as {sender?: unknown}).sender === "runnable-code-blocks-stop") {
-      stop();
-      parent.postMessage({ sender: "runnable-code-blocks-preview", type: "stopped" }, "*");
+      if (stopped) parent.postMessage({ sender: "runnable-code-blocks-preview", type: "stopped" }, "*");
+      else stop();
     }
   });
   addEventListener("pagehide", () => stop(), { once: true });
