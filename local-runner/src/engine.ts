@@ -25,6 +25,8 @@ export interface ExecutionEngine {
 
 export class DockerEngine implements ExecutionEngine {
   readonly #binary: string;
+  #inventory: { languages: string[]; expiresAt: number } | undefined;
+  #inventoryRequest: Promise<string[]> | undefined;
 
   constructor(binary = "docker") {
     this.#binary = binary;
@@ -40,11 +42,19 @@ export class DockerEngine implements ExecutionEngine {
   }
 
   async availableLanguages(): Promise<string[]> {
-    await this.version();
-    const entries = await Promise.all([...CONTAINER_PROFILES.values()].map(async (profile) =>
-      await imageAvailable(this.#binary, profile) ? profile.language : null
-    ));
-    return entries.filter((language): language is string => language !== null).sort();
+    if (this.#inventory !== undefined && this.#inventory.expiresAt > Date.now()) return [...this.#inventory.languages];
+    // A capabilities burst must not spawn one Docker process per language per visitor.
+    // Docker Hub reports short repository names; compare the exact normalized repo + digest.
+    this.#inventoryRequest ??= exec(this.#binary, ["image", "ls", "--all", "--digests", "--format", "{{.Repository}}@{{.Digest}}"], {
+      timeout: 2_000, maxBuffer: 1_048_576
+    }).then(({ stdout }) => {
+      const images = new Set(stdout.trim().split("\n").map(normalizeImageReference));
+      const languages = [...CONTAINER_PROFILES.values()].filter(profile => images.has(normalizeImageReference(profile.image)))
+        .map(profile => profile.language).sort();
+      this.#inventory = {languages, expiresAt: Date.now() + 2_000};
+      return languages;
+    }).finally(() => { this.#inventoryRequest = undefined; });
+    return [...await this.#inventoryRequest];
   }
 
   async prepare(languages: readonly string[]): Promise<void> {
@@ -58,6 +68,7 @@ export class DockerEngine implements ExecutionEngine {
     for (const image of images) {
       await exec(this.#binary, ["pull", image], { maxBuffer: 2_000_000, timeout: 10 * 60_000 });
     }
+    this.#inventory = undefined;
   }
 
   async run(language: string, code: string, signal?: AbortSignal): Promise<EngineResult> {
@@ -97,6 +108,10 @@ export class DockerEngine implements ExecutionEngine {
     throwIfCancelled(signal);
     return { ...result, durationMs: performance.now() - started, provider: `Local container · ${profile.image}` };
   }
+}
+
+function normalizeImageReference(value: string): string {
+  return value.trim().replace(/^docker\.io\/(?:library\/)?/u, "");
 }
 
 function throwIfCancelled(signal?: AbortSignal): void {

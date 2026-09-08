@@ -305,7 +305,9 @@ for (const [name, code] of [
     const created = page.waitForEvent("worker");
     await lesson.getByRole("button", { name: "Run code" }).click();
     const worker = await created;
-    const closed = worker.waitForEvent("close", { timeout: 4_000 });
+    // The watchdog message remains bounded below; Chromium can report target detachment
+    // later (observed about 4 seconds after creation for native RegExp termination).
+    const closed = worker.waitForEvent("close", { timeout: 6_000 });
     await expect(lesson.locator(".rcb__output")).toContainText("did not respond within 2 seconds", { timeout: 4_000 });
     await closed;
     await expect(lesson.getByRole("button", { name: "Run code" })).toBeEnabled();

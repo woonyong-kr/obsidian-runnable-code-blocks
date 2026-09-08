@@ -6,7 +6,35 @@ import { afterEach, describe, expect, it, vi } from "vitest";
 import { DockerEngine } from "../src/engine";
 
 const directories: string[] = [];
-afterEach(async () => { for (const path of directories.splice(0)) await rm(path, { recursive: true, force: true }); });
+afterEach(async () => { vi.useRealTimers(); for (const path of directories.splice(0)) await rm(path, { recursive: true, force: true }); });
+
+const installedImages = [
+  "python@sha256:7415fbc3c9e4979cc717d92377ab2bc7b2b4a2af1ac03cc52b5f3f88efedaf3a",
+  "docker.io/gmazzo/kotlin@sha256:5b19a73f0ede1f5b103921c3a48ae3035d3fe7cbcde15c3eee039a9a0a3aacfb",
+  "unrelated/repository@sha256:6ea5548706b60ac0a602eaf48af74792cbab012d90e811ca8db6184b16b5c3d6",
+  "eclipse-temurin@<none>"
+];
+
+it("shares capability discovery across clients, matches pinned digests and expires its short cache", async () => {
+  vi.useFakeTimers({toFake: ["Date"]});
+  const fixture = await fakeDocker({images: installedImages});
+  const engine = new DockerEngine(fixture.binary);
+  const results = await Promise.all(Array.from({length: 6}, async () => await engine.availableLanguages()));
+  for (const result of results) expect(result).toEqual(["kotlin", "python"]);
+  expect((await fixture.events()).filter(value => ["listing", "inspect", "version"].includes(value))).toEqual(["listing"]);
+  await fixture.images([]);
+  expect(await engine.availableLanguages()).toEqual(["kotlin", "python"]);
+  vi.setSystemTime(Date.now() + 2_001);
+  expect(await engine.availableLanguages()).toEqual([]);
+  expect((await fixture.events()).filter(value => value === "listing")).toHaveLength(2);
+});
+
+it("does not cache a failed Docker inventory lookup", async () => {
+  const fixture = await fakeDocker({images: installedImages, failImagesOnce: true});
+  const engine = new DockerEngine(fixture.binary);
+  await expect(engine.availableLanguages()).rejects.toThrow();
+  expect(await engine.availableLanguages()).toEqual(["kotlin", "python"]);
+});
 
 describe("container cancellation lifecycle", { timeout: 10_000 }, () => {
   it("cleans a container created after cancellation without starting user code", async () => {
@@ -65,12 +93,13 @@ it.each([true, false])("distinguishes confirmed OOM from an unexplained nonzero 
   expect(await fixture.events()).toContain("removed");
 });
 
-async function fakeDocker(options: { pauseCreate?: boolean; pauseRemove?: boolean; failRemove?: boolean; exitCode?: number; oom?: boolean }) {
+async function fakeDocker(options: { pauseCreate?: boolean; pauseRemove?: boolean; failRemove?: boolean; exitCode?: number; oom?: boolean; images?: string[]; failImagesOnce?: boolean }) {
   const path = await mkdtemp(join(tmpdir(), "rcb-cancel-engine-"));
   directories.push(path);
   const binary = join(path, "docker");
   const events = join(path, "events");
   await writeFile(events, "");
+  await writeFile(join(path, "images"), JSON.stringify(options.images ?? []));
   await writeFile(binary, `#!${process.execPath}
 const fs = require('node:fs');
 const dir = ${JSON.stringify(path)}, options = ${JSON.stringify(options)};
@@ -78,7 +107,19 @@ const log = value => fs.appendFileSync(dir + '/events', value + '\\n');
 const wait = name => new Promise(resolve => { const timer = setInterval(() => { if (fs.existsSync(dir + '/' + name)) { clearInterval(timer); resolve(); } }, 10); });
 (async () => {
   const command = process.argv[2];
-  if (command === 'image') return;
+  if (command === 'version') { log('version'); process.stdout.write('29.4'); return; }
+  if (command === 'image') {
+    if (!options.images) return;
+    const images = JSON.parse(fs.readFileSync(dir + '/images', 'utf8'));
+    if (process.argv[3] === 'ls') {
+      log('listing');
+      if(options.failImagesOnce && !fs.existsSync(dir + '/failed')) {fs.writeFileSync(dir + '/failed', ''); throw Error('Docker temporarily unavailable');}
+      process.stdout.write(images.join('\\n')); return;
+    }
+    log('inspect'); const normalize = value => value.replace(/^docker\\.io\\/(?:library\\/)?/, '');
+    if (!images.map(normalize).includes(normalize(process.argv[4]))) process.exitCode = 1;
+    return;
+  }
   if (command === 'create') { log('creating'); if (options.pauseCreate) await wait('create'); fs.writeFileSync(dir + '/container', 'exists'); log('created'); return; }
   if (command === 'inspect') { process.stdout.write(String(options.oom === true)); return; }
   if (command === 'start') { log('start'); if (options.exitCode) { process.exitCode = options.exitCode; return; } process.stdin.resume(); setInterval(() => {}, 1000); return; }
@@ -89,5 +130,5 @@ const wait = name => new Promise(resolve => { const timer = setInterval(() => { 
   }
 })().catch(e => { console.error(e); process.exitCode=1; });
 `, { mode: 0o700 });
-  return { binary, events: async () => (await readFile(events, "utf8")).split("\n"), release: async (name: string) => { await writeFile(join(path, name), ""); } };
+  return { binary, images: async (value: string[]) => { await writeFile(join(path, "images"), JSON.stringify(value)); }, events: async () => (await readFile(events, "utf8")).split("\n"), release: async (name: string) => { await writeFile(join(path, name), ""); } };
 }
