@@ -30,6 +30,13 @@ The public boundary enforces an exact hostname and HTTPS Origin allowlist, a 32 
 
 Only explicitly prepared images appear in `/v1/capabilities`. When the machine or tunnel is offline, the static client leaves browser-native examples available and explains that compiled-language execution is temporarily unavailable on the personal compiler.
 
+The 15-second deadline includes compilation. Kotlin uses `-J-XX:TieredStopAtLevel=1`
+only for its short-lived compiler JVM to reduce startup work under the one-CPU limit;
+the user's program still runs with the default JVM compilation policy. This does not
+increase CPU, memory, execution time, or network permissions. Timeouts return exit
+code 124 and optional `failureReason: "timeout"` with an explanation in stderr.
+Large programs or a heavily loaded host can still reach that deadline.
+
 ## Execution cancellation
 
 Both gateways advertise optional `cancellation: true` in capabilities. After submitting a run with `X-Runnable-Request-Id`, send `POST /v1/cancel` with that same UUID and the same Origin (public gateway) or bearer token (companion). No source body is sent. Public job IDs are unguessable capabilities bound to their Origin, so a network address change does not orphan the execution; quotas still apply by client IP.
