@@ -57,6 +57,8 @@ The following provider observations were recorded on 2026-09-05. They are not a 
 
 The local candidate was installed in a separate public sample vault with receipt and asset-hash verification. In Obsidian 1.13.7 on macOS, Canvas execution, Stop, a fresh execution, and Copy succeeded. Actions use SVG icons with accessible names; measured controls were 30×30 CSS pixels with 8 pixels above and 9 below including the toolbar divider. Light/dark themes and zoom were inspected. A host CSS override of the primary action was corrected so Run retains the host accent and secondary actions remain subdued.
 
+The nested editor gutter fix (`00ad7ba`) removes Obsidian's inherited 24-pixel folding margin. Before the fix, the host-style regression failed; afterward, all four focused layout tests and static checks passed. Native light/dark checks measured a zero-pixel gap and equal active-row top edges and backgrounds, including a keyboard move to line 7. Code padding is 8 pixels and editor vertical padding is 7/9 pixels. The standalone server bundle hash remained unchanged.
+
 The existing 360/1280-pixel browser tests now check actual control spacing, SVG presence, accessible names, copying, and horizontal overflow. These browser viewports do not constitute physical mobile-app verification. A WebGL watchdog failure occurred during an earlier combined run; subsequent isolated and full runs passed, but its original cause remains unconfirmed. No timeout assertion was relaxed to pass it.
 
 ## Community scan boundaries

@@ -8,19 +8,19 @@
       "path": "docs/assets/runnable-code-blocks-demo.gif",
       "width": 1600,
       "height": 900,
-      "sha256": "e1afc836a5094cf1aeb842db42962f6c20569373065a7fe9410972b1854afac2"
+      "sha256": "491f26ab78f73961033d011d99871461421c3aa5a3ab9b2d630493f7eb99cefe"
     },
     {
       "path": "docs/assets/runnable-code-blocks-preview.png",
       "width": 1600,
       "height": 900,
-      "sha256": "f612250389c688bd01260602b89acac73f9ae679870761fc12fc1ac2572e306d"
+      "sha256": "2d4f99cc554967d1e2c3a7158a9ab104a807dd55705c10b3d44d894344631f34"
     },
     {
       "path": "docs/assets/runnable-web-preview.png",
       "width": 1600,
       "height": 900,
-      "sha256": "d4e39782fff2b4078f75e608d730455c93b7a46be8bbc147cad605cde3affc6c"
+      "sha256": "d2f61c0a68c7471a97f98148d29c6660ed8c172ba0365290c4d5bd743033c551"
     }
   ]
 }
