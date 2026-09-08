@@ -21,7 +21,9 @@ const OBSIDIAN_DOM_ADAPTER: DomAdapter = {
     cls: options.className,
     text: options.text
   }),
-  appendSvgElement: (parent, name, className) => parent.createSvg(name, { cls: className })
+  appendSvgElement: (parent, name, className) => parent.createSvg(name, {
+    cls: className?.split(/\s+/).filter(Boolean)
+  })
 };
 
 let activeDomAdapter = OBSIDIAN_DOM_ADAPTER;
