@@ -1,21 +1,21 @@
 # Verification evidence
 
-This page records checks for the current source tree. Provider smoke results are time-dependent and do not promise third-party uptime.
+This page separates current source checks from dated provider observations. Source verification is not proof that the same files have been released or approved by the Community directory. Provider smoke results do not promise third-party uptime.
 
 The full remote sample sweep passed for all 18 CLI-backed language samples on 2026-09-05. The first Rust request timed out with an unknown outcome and correctly stopped without a fallback or duplicate submission; a separate retry passed with Wandbox `rust-1.82.0`.
 
 ## Automated verification
 
-`npm run verify` passed for version 0.6.0:
+`npm run verify` passed on 2026-09-08 for source commit `2cf76a9` (the next release candidate, still carrying manifest version 0.7.0):
 
 - TypeScript strict checking and ESLint, including `eslint-plugin-obsidianmd` Community rules;
 - Knip dead-code and dependency analysis;
-- the complete covered unit suite;
+- 171 covered unit tests and 22 Chromium end-to-end tests;
 - fresh-build Chromium E2E checks for editing and Reset, React interaction, host theme tokens, keyboard focus, the 102/103-line scroll boundary, preview navigation containment, ReactDOM script-resource CSP rejection, bounded direct preview relays, and real Worker output truncation;
 - coverage exceeds the enforced 80% statement/line, 70% branch, and 75% function thresholds;
 - both production bundles remain below the reviewed 5 MB release ceiling;
-- release-policy check: 24 runnable fences, 9 plugin adapters, and 16 digest-pinned local container profiles;
-- npm package dry run contains only the 7 declared release files.
+- release-policy checks for the runnable fence and adapter inventory, digest-pinned container profiles, and media hashes;
+- npm package dry run contains only the 8 declared files.
 
 Additional repository checks passed:
 
@@ -34,7 +34,7 @@ Additional repository checks passed:
 
 ## Browser verification
 
-The generated static adapter was served from `dist-site/` and inspected in a real browser:
+The following provider observations were recorded on 2026-09-05. They are not a fresh availability check:
 
 - the live Kotlin block reached an enabled Run state through Kotlin Playground 2.4.10;
 - **Run** exposed `aria-busy=true`, a spinner with `Running…`, and `Waiting for result…` before returning `Hello from Community!` and naming Kotlin Playground 2.4.10 in Output;
@@ -52,6 +52,21 @@ The generated static adapter was served from `dist-site/` and inspected in a rea
 - the mobile editor preserved numbered lines, syntax highlighting, and an accessible Run control;
 - the public-safe Ready, edit, Running, provider output, and interactive Web frames were normalized without stretching to 1600 × 900 and assembled into the current GIF;
 - the landing page mounts one featured React runner at startup and defers the complete 24-fence catalog until its disclosure is opened.
+
+## Native UI verification — 2026-09-08
+
+The local candidate was installed in a separate public sample vault with receipt and asset-hash verification. In Obsidian 1.13.7 on macOS, Canvas execution, Stop, a fresh execution, and Copy succeeded. Actions use SVG icons with accessible names; measured controls were 30×30 CSS pixels with 8 pixels above and 9 below including the toolbar divider. Light/dark themes and zoom were inspected. A host CSS override of the primary action was corrected so Run retains the host accent and secondary actions remain subdued.
+
+The existing 360/1280-pixel browser tests now check actual control spacing, SVG presence, accessible names, copying, and horizontal overflow. These browser viewports do not constitute physical mobile-app verification. A WebGL watchdog failure occurred during an earlier combined run; subsequent isolated and full runs passed, but its original cause remains unconfirmed. No timeout assertion was relaxed to pass it.
+
+## Community scan boundaries
+
+The public [Community scorecard](https://community.obsidian.md/plugins/runnable-code-blocks#scorecard) was inspected on 2026-09-08. It reported Caution for the released 0.7.0, while asset attestation, byte-for-byte main.js reproduction, and the dependency vulnerability scan passed. The local candidate has not yet replaced that release.
+
+- Node imports belong to the separately operated `local-runner/src` server, not the Obsidian main.js bundle. The plugin remains usable without this optional server. Do not add desktop-only guards to a standalone Node process merely to silence a plugin-oriented rule.
+- The two asynchronous HTTP request listeners now share an explicit rejection boundary. A regression test requires a bounded 500 response without internal error details and a successful subsequent request; strict void-return Promise linting passes for both servers and the boundary.
+- Browser DOM adapters and opaque preview frames do not have Obsidian's prototype helpers. Their native DOM creation must stay within the host-specific boundary.
+- Dynamic script creation and additional companion/license release files remain explicit review items. Their presence is not silently dismissed as a false positive, and preserving sandbox and license requirements takes precedence over hiding a warning.
 
 ## Reviewed failure paths
 
