@@ -160,8 +160,8 @@ export function mountRunnableBlock(
 
   const setRunning = (value: boolean) => {
     const active = value || previewActive;
-    runButton.disabled = !active && (!available || Date.now() < retryAt);
-    retryButton.disabled = value || checkingAvailability || Date.now() < retryAt;
+    runButton.disabled = !active && (!available || performance.now() < retryAt);
+    retryButton.disabled = value || checkingAvailability || performance.now() < retryAt;
     resetButton.disabled = value;
     runButton.setAttribute("aria-busy", active ? "true" : "false");
     root.setAttribute("aria-busy", value ? "true" : "false");
@@ -173,8 +173,8 @@ export function mountRunnableBlock(
 
   const applyAvailabilityState = () => {
     setRunning(running);
-    retryButton.hidden = available && Date.now() >= retryAt;
-    retryButton.disabled = running || checkingAvailability || Date.now() < retryAt;
+    retryButton.hidden = available && performance.now() >= retryAt;
+    retryButton.disabled = running || checkingAvailability || performance.now() < retryAt;
     status.title = availabilityDetail;
     status.setAttribute("aria-label", available
       ? `Ready to run. ${availabilityDetail}`
@@ -191,8 +191,22 @@ export function mountRunnableBlock(
     }
   };
 
+  const releaseRetryCooldown = () => {
+    window.clearTimeout(retryTimer);
+    retryTimer = undefined;
+    if (lifecycle.disposed) return;
+    const remaining = retryAt - performance.now();
+    if (remaining > 0) {
+      // Timers can wake before a coarse clock reaches the deadline. Keep the
+      // remaining wait scheduled instead of leaving the controls disabled.
+      retryTimer = window.setTimeout(releaseRetryCooldown, Math.min(2_147_483_647, Math.max(1, Math.ceil(remaining))));
+      return;
+    }
+    applyAvailabilityState();
+  };
+
   const refreshAvailability = async (signal?: AbortSignal): Promise<boolean> => {
-    if (Date.now() < retryAt || lifecycle.disposed) return false;
+    if (performance.now() < retryAt || lifecycle.disposed) return false;
     const request = ++availabilityRequest;
     checkingAvailability = true;
     retryButton.disabled = true;
@@ -212,7 +226,7 @@ export function mountRunnableBlock(
   };
 
   const run = async () => {
-    if (lifecycle.disposed || running || !available || Date.now() < retryAt) return;
+    if (lifecycle.disposed || running || !available || performance.now() < retryAt) return;
     running = true;
     const id = ++executionId;
     const controller = new AbortController();
@@ -318,15 +332,12 @@ export function mountRunnableBlock(
       disposePreview();
       preview.hidden = true;
       if (error instanceof ProviderUnavailableError && error.executionState === "not-started") {
-        retryAt = Date.now() + (error.retryAfterMs ?? 0);
-        window.clearTimeout(retryTimer);
-        if (retryAt > Date.now()) retryTimer = window.setTimeout(() => {
-          if (!lifecycle.disposed) applyAvailabilityState();
-        }, Math.min(2_147_483_647, retryAt - Date.now()));
+        retryAt = performance.now() + (error.retryAfterMs ?? 0);
         available = false;
         availabilityDetail = error.retryAfterMs ? `${error.message} Try again in ${String(Math.ceil(error.retryAfterMs / 1000))} seconds.` : error.message;
         consolePanel.hidden = true;
         applyAvailabilityState();
+        releaseRetryCooldown();
         return;
       }
       root.dataset.state = "error";
