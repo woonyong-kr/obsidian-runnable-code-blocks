@@ -24,6 +24,7 @@ export interface RunResult {
 
 export interface RunContext {
   signal?: AbortSignal;
+  onCancellation?: (state: "pending" | "cancelled" | "completed" | "unknown") => void;
 }
 
 export interface CodeRunner {

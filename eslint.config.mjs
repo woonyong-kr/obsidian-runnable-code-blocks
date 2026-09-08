@@ -35,7 +35,7 @@ export default tseslint.config(
     }
   },
   {
-    files: ["site/browser-dom-adapter.ts"],
+    files: ["site/browser-dom-adapter.ts", "src/preview-worker/frame.ts"],
     rules: {
       // The static host does not provide Obsidian's prototype helpers.
       "obsidianmd/prefer-create-el": "off"

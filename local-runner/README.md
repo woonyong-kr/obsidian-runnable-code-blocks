@@ -29,3 +29,11 @@ The gateway still listens on `127.0.0.1` (port `17172` by default). Publish that
 The public boundary enforces an exact hostname and HTTPS Origin allowlist, a 32 KB source limit, two concurrent jobs, six runs per client per minute, 120 runs globally per hour, UUID idempotency keys, and sanitized provider responses. Containers retain disabled networking, digest-pinned images, a read-only root filesystem, non-root execution, dropped capabilities, 15-second execution time, and resource limits. The limits can be lowered or selectively adjusted with `RCB_PUBLIC_RUNNER_*` environment variables; keep them conservative on a personal machine.
 
 Only explicitly prepared images appear in `/v1/capabilities`. When the machine or tunnel is offline, the static client leaves browser-native examples available and explains that compiled-language execution is temporarily unavailable on the personal compiler.
+
+## Execution cancellation
+
+Both gateways advertise optional `cancellation: true` in capabilities. After submitting a run with `X-Runnable-Request-Id`, send `POST /v1/cancel` with that same UUID and the same Origin (public gateway) or bearer token (companion). No source body is sent. Public job IDs are unguessable capabilities bound to their Origin, so a network address change does not orphan the execution; quotas still apply by client IP.
+
+The response is `{ "state": "cancelled" | "completed" | "unknown" }`. `cancelled` is returned only after the engine confirms removal, or after recording a cancellation before execution began. A failed Docker cleanup returns `unknown`. Cancellation records prevent delayed submission/retry of the same ID for 30 seconds. Running jobs never expire from the idempotency cache; completed jobs are retained for 30 seconds. The cache is bounded, and source/header receive deadlines prevent stalled requests from occupying sockets indefinitely.
+
+The engine creates a named container before attaching to it, checks cancellation before starting it, and awaits `docker rm --force` on completion, abort, deadline, or output overflow. Killing the Docker client alone is insufficient. Legacy companion clients without request IDs retain their API; a closed response socket cancels their engine execution.

@@ -1,3 +1,4 @@
+import { cancelHttpExecution } from "./cancel-http-execution";
 export const DEFAULT_LOCAL_RUNNER_ENDPOINT = "http://127.0.0.1:17171";
 import type { CodeRunner, RunContext, RunResult, RunnerAvailability } from "../contracts";
 import { fetchWithTimeout, type FetchLike, unavailableFetch } from "./http-client";
@@ -66,7 +67,13 @@ export class LocalCompanionRunner implements CodeRunner {
   }
 
   async run(code: string, context?: RunContext): Promise<RunResult> {
+    context?.signal?.throwIfAborted();
     const requestId = crypto.randomUUID();
+    const headers = {
+      "Content-Type": "application/json",
+      "X-Runnable-Request-Id": requestId,
+      "Authorization": `Bearer ${this.#token}`
+    };
     let response: Response;
     try {
       response = await fetchWithTimeout(
@@ -74,17 +81,17 @@ export class LocalCompanionRunner implements CodeRunner {
         `${this.#endpoint}/v1/run`,
         {
           method: "POST",
-          headers: {
-            "Authorization": `Bearer ${this.#token}`,
-            "Content-Type": "application/json",
-            "X-Runnable-Request-Id": requestId
-          },
+          headers,
           body: JSON.stringify({ code, language: this.language })
         },
         20_000,
         context?.signal
       );
     } catch (error) {
+      if (context?.signal?.aborted === true || (error instanceof DOMException && error.name === "TimeoutError")) {
+        void cancelHttpExecution(this.#fetch, this.#endpoint, headers, context);
+        throw error;
+      }
       throw unknownRemoteFailure("Local runner", error);
     }
     if (!response.ok) {

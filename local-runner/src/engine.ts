@@ -60,6 +60,7 @@ export class DockerEngine implements ExecutionEngine {
   }
 
   async run(language: string, code: string, signal?: AbortSignal): Promise<EngineResult> {
+    throwIfCancelled(signal);
     const profile = CONTAINER_PROFILES.get(language);
     if (profile === undefined) throw new EngineNotReadyError(`Unsupported language: ${language}`);
     if (!await imageAvailable(this.#binary, profile)) {
@@ -67,13 +68,39 @@ export class DockerEngine implements ExecutionEngine {
     }
     const name = `rcb-${randomUUID()}`;
     const started = performance.now();
-    const child = spawn(this.#binary, containerArguments(name, profile), { stdio: ["pipe", "pipe", "pipe"] });
-    const result = await collectProcess(child, code, name, this.#binary, signal);
-    return {
-      ...result,
-      durationMs: performance.now() - started,
-      provider: `Local container · ${profile.image}`
-    };
+    throwIfCancelled(signal);
+    let result: Omit<EngineResult, "durationMs" | "provider">;
+    try {
+      // Create before attach: cancellation cannot race Docker's asynchronous container creation.
+      await exec(this.#binary, ["create", ...containerArguments(name, profile).slice(2)], { timeout: 5_000 });
+      if (signal?.aborted !== true) {
+        const child = spawn(this.#binary, ["start", "--attach", "--interactive", name], { stdio: ["pipe", "pipe", "pipe"] });
+        result = await collectProcess(child, code, name, this.#binary, signal, Math.max(1, TIMEOUT_MS - (performance.now() - started)));
+      } else {
+        result = { exitCode: 137, stderr: "", stdout: "" };
+      }
+    } finally {
+      await removeContainer(this.#binary, name);
+    }
+    throwIfCancelled(signal);
+    return { ...result, durationMs: performance.now() - started, provider: `Local container · ${profile.image}` };
+  }
+}
+
+function throwIfCancelled(signal?: AbortSignal): void {
+  if (signal?.aborted === true) throw new ExecutionCancelledError();
+}
+
+export class ExecutionCancelledError extends Error {
+  constructor() { super("Execution cancelled; container removed."); this.name = "ExecutionCancelledError"; }
+}
+
+async function removeContainer(binary: string, name: string): Promise<void> {
+  // Await Docker's acknowledgement. A failed cleanup must never become a successful cancellation.
+  try {
+    await exec(binary, ["rm", "--force", name], { timeout: 3_000 });
+  } catch (error) {
+    if (!String((error as { stderr?: string }).stderr).includes("No such container")) throw error;
   }
 }
 
@@ -122,24 +149,27 @@ async function collectProcess(
   code: string,
   containerName: string,
   binary: string,
-  signal?: AbortSignal
+  signal?: AbortSignal,
+  timeoutMs = TIMEOUT_MS
 ): Promise<Omit<EngineResult, "durationMs" | "provider">> {
   let stdout = "";
   let stderr = "";
   let outputExceeded = false;
   let settled = false;
+  let termination: Promise<void> | undefined;
   const append = (current: string, chunk: Buffer): string => {
     const remaining = OUTPUT_LIMIT - current.length;
     if (remaining <= 0) return current;
     return current + chunk.toString("utf8").slice(0, remaining);
   };
   const terminate = () => {
-    child.kill("SIGKILL");
-    void exec(binary, ["rm", "--force", containerName], { timeout: 3_000 }).catch(() => undefined);
+    termination ??= removeContainer(binary, containerName).finally(() => { child.kill("SIGKILL"); });
+    // Keep rejection handled while the process closes; it is rethrown below.
+    void termination.catch(() => undefined);
   };
   const abort = () => terminate();
   signal?.addEventListener("abort", abort, { once: true });
-  const timeout = setTimeout(terminate, TIMEOUT_MS);
+  const timeout = setTimeout(terminate, timeoutMs);
   child.stdout.on("data", (chunk: Buffer) => {
     stdout = append(stdout, chunk);
     if (stdout.length + stderr.length >= OUTPUT_LIMIT) {
@@ -154,7 +184,9 @@ async function collectProcess(
       terminate();
     }
   });
+  child.stdin.on("error", () => { /* Early cancellation can close stdin before source is written. */ });
   child.stdin.end(code);
+  if (signal?.aborted === true) terminate();
   try {
     return await new Promise((resolve, reject) => {
       child.once("error", reject);
@@ -162,7 +194,7 @@ async function collectProcess(
         if (settled) return;
         settled = true;
         if (signal?.aborted === true) {
-          reject(new Error("Execution aborted."));
+          resolve({ exitCode: 137, stderr, stdout });
           return;
         }
         if (outputExceeded) stderr += "\n[output truncated at 64000 characters]";
@@ -172,5 +204,6 @@ async function collectProcess(
   } finally {
     clearTimeout(timeout);
     signal?.removeEventListener("abort", abort);
+    await termination;
   }
 }

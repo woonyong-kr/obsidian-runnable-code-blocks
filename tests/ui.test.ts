@@ -1,5 +1,5 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
-import type { CodeRunner, RunResult } from "../src/contracts";
+import type { CodeRunner, RunContext, RunResult } from "../src/contracts";
 import { mountRunnableBlock } from "../src/ui";
 
 function createRunner(overrides: Partial<CodeRunner> = {}): CodeRunner {
@@ -67,6 +67,36 @@ describe("runnable block UI", () => {
     expect(host.querySelector<HTMLButtonElement>('.rcb__button--run')?.disabled).toBe(false);
     expect(host.querySelector('.rcb__output')?.textContent).not.toContain('stale');
   });
+  it.each([
+    ["cancelled", "Server execution cancelled; container removed."],
+    ["completed", "The server execution had already completed."],
+    ["unknown", "Server cancellation could not be confirmed"]
+  ] as const)("reports %s only from the current cancellation acknowledgement", async (state, message) => {
+    const contexts: RunContext[] = [];
+    const runner = createRunner({ environment: "remote", run: async (_code, context) => {
+      contexts.push(context ?? {});
+      return await new Promise<RunResult>((_resolve, reject) => context?.signal?.addEventListener("abort", () => reject(new DOMException("Aborted", "AbortError")), { once: true }));
+    } });
+    const host = document.body.appendChild(document.createElement("div"));
+    const mounted = mountRunnableBlock(host, { code: "source", language: "java", runner });
+    const run = host.querySelector<HTMLButtonElement>(".rcb__button--run");
+    await vi.waitFor(() => expect(run?.disabled).toBe(false));
+    run?.click();
+    await vi.waitFor(() => expect(contexts).toHaveLength(1));
+    host.querySelector<HTMLButtonElement>(".rcb__button--stop")?.click();
+    expect(host.querySelector(".rcb__output")?.textContent).not.toContain("Server execution cancelled");
+    contexts[0]?.onCancellation?.("pending");
+    expect(host.querySelector(".rcb__console-meta")?.textContent).toBe("Cancelling");
+    contexts[0]?.onCancellation?.(state);
+    expect(host.querySelector(".rcb__output")?.textContent).toContain(message);
+    run?.click();
+    await vi.waitFor(() => expect(contexts).toHaveLength(2));
+    contexts[0]?.onCancellation?.("cancelled");
+    expect(host.querySelector(".rcb")?.getAttribute("data-state")).toBe("running");
+    expect(host.querySelector(".rcb__output")?.textContent).toBe("Waiting for result…");
+    mounted.dispose();
+  });
+
   it("renders numbered trailing lines and disposes the mounted block", async () => {
     const host = document.body.appendChild(document.createElement("div"));
     const mounted = mountRunnableBlock(host, {

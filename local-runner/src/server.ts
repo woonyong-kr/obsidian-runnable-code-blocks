@@ -1,6 +1,6 @@
 import { createHash, timingSafeEqual } from "node:crypto";
 import { createServer, type IncomingMessage, type Server, type ServerResponse } from "node:http";
-import { EngineNotReadyError, type ExecutionEngine } from "./engine";
+import { EngineNotReadyError, ExecutionCancelledError, type ExecutionEngine } from "./engine";
 
 const MAX_SOURCE_BYTES = 256_000;
 const PROTOCOL_VERSION = 1;
@@ -14,7 +14,12 @@ export interface RunnerServerOptions {
 
 export function createRunnerServer(options: RunnerServerOptions): Server {
   let active = 0;
-  return createServer(async (request, response) => {
+  const jobs = new Map<string, {
+    fingerprint: string; controller: AbortController; expiresAt: number;
+    state: "running" | "completed" | "cancelled" | "unknown";
+    done: Promise<{ status: number; body: unknown }>;
+  }>();
+  return createServer({ requestTimeout: 22_000, headersTimeout: 5_000, connectionsCheckingInterval: 1_000 }, async (request, response) => {
     setSecurityHeaders(response);
     if (!validHost(request.headers.host) || !authenticated(request, options.token)) {
       sendJson(response, 401, { error: "Unauthorized" });
@@ -23,6 +28,7 @@ export function createRunnerServer(options: RunnerServerOptions): Server {
     if (request.method === "GET" && request.url === "/v1/capabilities") {
       try {
         sendJson(response, 200, {
+          cancellation: true,
           engine: await options.engine.version(),
           languages: await options.engine.availableLanguages(),
           protocolVersion: PROTOCOL_VERSION,
@@ -33,13 +39,27 @@ export function createRunnerServer(options: RunnerServerOptions): Server {
       }
       return;
     }
-    if (request.method !== "POST" || request.url !== "/v1/run") {
+    if (request.method !== "POST" || !["/v1/run", "/v1/cancel"].includes(request.url ?? "")) {
       sendJson(response, 404, { error: "Not found" });
       return;
     }
-    if (active >= (options.maxConcurrent ?? 2)) {
-      sendJson(response, 429, { error: "Runner is at its concurrency limit." });
-      return;
+    for (const [id, job] of jobs) if (job.expiresAt <= Date.now()) jobs.delete(id);
+    const id = request.headers["x-runnable-request-id"];
+    if (id !== undefined && (typeof id !== "string" || !/^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/iu.test(id))) {
+      sendJson(response, 400, { error: "Invalid request ID" }); return;
+    }
+    if (request.url === "/v1/cancel") {
+      if (id === undefined) { sendJson(response, 400, { error: "Request ID required" }); return; }
+      let job = jobs.get(id);
+      if (job === undefined) {
+        if (jobs.size >= 4096) { sendJson(response, 429, { state: "unknown" }); return; }
+        job = { fingerprint: "", controller: new AbortController(), expiresAt: Date.now() + 30_000,
+          state: "cancelled", done: Promise.resolve({ status: 409, body: { state: "cancelled" } }) };
+        jobs.set(id, job);
+      }
+      job.controller.abort();
+      await job.done;
+      sendJson(response, 200, { state: job.state }); return;
     }
     let payload: RunPayload;
     try {
@@ -48,19 +68,42 @@ export function createRunnerServer(options: RunnerServerOptions): Server {
       sendJson(response, error instanceof SourceTooLargeError ? 413 : 400, { error: errorMessage(error) });
       return;
     }
+    const fingerprint = createHash("sha256").update(payload.language).update("\0").update(payload.code).digest("hex");
+    const existing = id === undefined ? undefined : jobs.get(id);
+    if (existing) {
+      if (existing.state === "cancelled") { sendJson(response, 409, { state: "cancelled" }); return; }
+      if (existing.fingerprint !== fingerprint) { sendJson(response, 409, { error: "Conflicting request ID" }); return; }
+      const result = await existing.done;
+      sendJson(response, result.status, result.body); return;
+    }
+    if (active >= (options.maxConcurrent ?? 2) || jobs.size >= 4096) {
+      sendJson(response, 429, { error: "Runner is at its concurrency limit." }); return;
+    }
     active += 1;
     const controller = new AbortController();
-    request.once("aborted", () => controller.abort());
-    try {
-      const result = await options.engine.run(payload.language, payload.code, controller.signal);
-      sendJson(response, 200, { ...result, language: payload.language });
-    } catch (error) {
-      sendJson(response, error instanceof EngineNotReadyError ? 503 : 500, {
-        error: errorMessage(error)
-      });
-    } finally {
-      active -= 1;
-    }
+    const disconnect = () => { if (!response.writableEnded) controller.abort(); };
+    // Legacy clients have no cancellation ID. Their response socket closing is the cancellation signal.
+    if (id === undefined) response.once("close", disconnect);
+    const job: NonNullable<ReturnType<typeof jobs.get>> = {
+      controller, fingerprint, expiresAt: Infinity, state: "running", done: Promise.resolve({ status: 500, body: {} })
+    };
+    job.done = (async () => {
+      try {
+        const result = await options.engine.run(payload.language, payload.code, controller.signal);
+        job.state = "completed";
+        return { status: 200, body: { ...result, language: payload.language } };
+      } catch (error) {
+        job.state = error instanceof ExecutionCancelledError ? "cancelled" : "unknown";
+        return { status: job.state === "cancelled" ? 409 : error instanceof EngineNotReadyError ? 503 : 500,
+          body: { error: errorMessage(error), state: job.state } };
+      } finally {
+        active -= 1; job.expiresAt = Date.now() + 30_000;
+        response.removeListener("close", disconnect);
+      }
+    })();
+    if (id !== undefined) jobs.set(id, job);
+    const result = await job.done;
+    sendJson(response, result.status, result.body);
   });
 }
 

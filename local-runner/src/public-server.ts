@@ -1,7 +1,7 @@
 import { createHash } from "node:crypto";
 import { isIP } from "node:net";
 import { createServer, type IncomingMessage, type Server, type ServerResponse } from "node:http";
-import { EngineNotReadyError, type ExecutionEngine } from "./engine";
+import { EngineNotReadyError, ExecutionCancelledError, type ExecutionEngine } from "./engine";
 
 const MAX_SOURCE_BYTES = 32_000;
 const MAX_BODY_BYTES = 40_000;
@@ -20,9 +20,12 @@ export interface PublicRunnerServerOptions {
 }
 
 interface CachedJob {
+  origin: string;
   expiresAt: number;
   fingerprint: string;
   result: Promise<HttpResult>;
+  controller: AbortController;
+  state: "running" | "completed" | "cancelled" | "unknown";
 }
 
 interface HttpResult {
@@ -39,8 +42,9 @@ export function createPublicRunnerServer(options: PublicRunnerServerOptions): Se
   const global = new FixedWindowQuota(60 * 60_000);
   const jobs = new Map<string, CachedJob>();
   let active = 0;
+  const cancellations = new FixedWindowQuota(60_000);
 
-  return createServer(async (request, response) => {
+  return createServer({ requestTimeout: 22_000, headersTimeout: 5_000, connectionsCheckingInterval: 1_000 }, async (request, response) => {
     const origin = request.headers.origin;
     setSecurityHeaders(response, origin !== undefined && allowedOrigins.has(origin) ? origin : null);
 
@@ -65,6 +69,7 @@ export function createPublicRunnerServer(options: PublicRunnerServerOptions): Se
       try {
         const available = await options.engine.availableLanguages();
         sendJson(response, 200, {
+          cancellation: true,
           languages: filterLanguages(available, allowedLanguages),
           protocolVersion: PROTOCOL_VERSION,
           runnerVersion: options.runnerVersion,
@@ -80,18 +85,42 @@ export function createPublicRunnerServer(options: PublicRunnerServerOptions): Se
       }
       return;
     }
-    if (request.method !== "POST" || request.url !== "/v1/run") {
+    if (request.method !== "POST" || !["/v1/run", "/v1/cancel"].includes(request.url ?? "")) {
       sendJson(response, 404, { error: "Not found" });
+      return;
+    }
+    const requestId = request.headers["x-runnable-request-id"];
+    if (typeof requestId !== "string" || !isUuid(requestId)) {
+      sendJson(response, 400, { error: "X-Runnable-Request-Id must be a UUID" });
+      return;
+    }
+    const client = clientAddress(request);
+    const key = requestId;
+    pruneJobs(jobs, Date.now());
+    if (jobs.has(key) && jobs.get(key)?.origin !== origin) {
+      sendJson(response, 403, { error: "Request ID belongs to another origin.", state: "unknown" }); return;
+    }
+    if (request.url === "/v1/cancel") {
+      let job = jobs.get(key);
+      if (job === undefined) {
+        if (jobs.size >= 4096 || !cancellations.consume(client, 30, Date.now())) {
+          sendJson(response, 429, { state: "unknown" });
+          return;
+        }
+        job = {
+          origin, controller: new AbortController(), expiresAt: Date.now() + RESULT_CACHE_MS,
+          fingerprint: "", result: Promise.resolve(cancelledResult()), state: "cancelled"
+        };
+        jobs.set(key, job);
+      }
+      job.controller.abort();
+      // An acknowledgement means the engine has finished its cleanup, not just received AbortSignal.
+      await job.result;
+      sendJson(response, 200, { state: job.state });
       return;
     }
     if (!request.headers["content-type"]?.toLowerCase().startsWith("application/json")) {
       sendJson(response, 415, { error: "Content-Type must be application/json" });
-      return;
-    }
-
-    const requestId = request.headers["x-runnable-request-id"];
-    if (typeof requestId !== "string" || !isUuid(requestId)) {
-      sendJson(response, 400, { error: "X-Runnable-Request-Id must be a UUID" });
       return;
     }
 
@@ -114,8 +143,13 @@ export function createPublicRunnerServer(options: PublicRunnerServerOptions): Se
       .digest("hex");
     const now = Date.now();
     pruneJobs(jobs, now);
-    const existing = jobs.get(requestId);
+    const existing = jobs.get(key);
     if (existing !== undefined) {
+      if (existing.origin !== origin) { sendJson(response, 403, { error: "Request ID belongs to another origin." }); return; }
+      if (existing.state === "cancelled") {
+        sendJson(response, 409, cancelledResult().body);
+        return;
+      }
       if (existing.fingerprint !== fingerprint) {
         sendJson(response, 409, { error: "Request ID was already used for different source" });
         return;
@@ -125,7 +159,10 @@ export function createPublicRunnerServer(options: PublicRunnerServerOptions): Se
       return;
     }
 
-    const client = clientAddress(request);
+    if (jobs.size >= 4096) {
+      sendJson(response, 503, { error: "Execution cache is at capacity." });
+      return;
+    }
     if (!perIp.consume(client, options.perIpLimitPerMinute ?? 6, now)) {
       response.setHeader("Retry-After", "60");
       sendJson(response, 429, { error: "This browser has reached the personal compiler rate limit." });
@@ -143,16 +180,25 @@ export function createPublicRunnerServer(options: PublicRunnerServerOptions): Se
     }
 
     active += 1;
-    const result = execute(options.engine, payload).finally(() => { active -= 1; });
-    jobs.set(requestId, { expiresAt: now + RESULT_CACHE_MS, fingerprint, result });
+    const controller = new AbortController();
+    const job: CachedJob = {
+      origin, controller, expiresAt: Infinity, fingerprint,
+      result: Promise.resolve({ status: 500, body: {} }), state: "running"
+    };
+    const result = execute(options.engine, payload, controller.signal).then((value) => {
+      job.state = value.status === 409 ? "cancelled" : value.status === 200 ? "completed" : "unknown";
+      return value;
+    }).finally(() => { active -= 1; job.expiresAt = Date.now() + RESULT_CACHE_MS; });
+    job.result = result;
+    jobs.set(key, job);
     const completed = await result;
     sendJson(response, completed.status, completed.body);
   });
 }
 
-async function execute(engine: ExecutionEngine, payload: RunPayload): Promise<HttpResult> {
+async function execute(engine: ExecutionEngine, payload: RunPayload, signal: AbortSignal): Promise<HttpResult> {
   try {
-    const result = await engine.run(payload.language, payload.code);
+    const result = await engine.run(payload.language, payload.code, signal);
     return {
       body: {
         durationMs: result.durationMs,
@@ -165,6 +211,7 @@ async function execute(engine: ExecutionEngine, payload: RunPayload): Promise<Ht
       status: 200
     };
   } catch (error) {
+    if (error instanceof ExecutionCancelledError) return cancelledResult();
     if (error instanceof EngineNotReadyError) {
       return { body: { error: "This language runtime is not prepared yet." }, status: 503 };
     }
@@ -224,6 +271,7 @@ function setSecurityHeaders(response: ServerResponse, origin: string | null): vo
     response.setHeader("Access-Control-Allow-Methods", "GET, POST, OPTIONS");
     response.setHeader("Access-Control-Allow-Headers", "Content-Type, X-Runnable-Request-Id");
     response.setHeader("Access-Control-Max-Age", "600");
+    response.setHeader("Access-Control-Expose-Headers", "Retry-After");
   }
 }
 
@@ -261,6 +309,10 @@ function parseRunPayload(body: string): RunPayload {
 function publicError(error: unknown): string {
   if (error instanceof SourceTooLargeError) return error.message;
   return error instanceof SyntaxError ? "Invalid JSON" : error instanceof Error ? error.message : "Invalid request";
+}
+
+function cancelledResult(): HttpResult {
+  return { status: 409, body: { error: "Execution cancelled.", state: "cancelled" } };
 }
 
 function pruneJobs(jobs: Map<string, CachedJob>, now: number): void {

@@ -1,3 +1,4 @@
+import { cancelHttpExecution } from "./cancel-http-execution";
 import type { CodeRunner, RunContext, RunResult, RunnerAvailability } from "../contracts";
 import { fetchWithTimeout, type FetchLike, unavailableFetch } from "./http-client";
 import { ProviderUnavailableError } from "./provider-errors";
@@ -70,7 +71,12 @@ export class PersonalCompilerRunner implements CodeRunner {
   }
 
   async run(code: string, context?: RunContext): Promise<RunResult> {
+    context?.signal?.throwIfAborted();
     const requestId = crypto.randomUUID();
+    const headers = {
+      "Content-Type": "application/json",
+      "X-Runnable-Request-Id": requestId
+    };
     let response: Response;
     try {
       response = await requestWithOneRetry(
@@ -78,16 +84,16 @@ export class PersonalCompilerRunner implements CodeRunner {
         `${this.#endpoint}/v1/run`,
         {
           body: JSON.stringify({ code, language: this.language }),
-          headers: {
-            "Content-Type": "application/json",
-            "X-Runnable-Request-Id": requestId
-          },
+          headers,
           method: "POST"
         },
         context?.signal
       );
     } catch (error) {
-      if (context?.signal?.aborted === true || (error instanceof DOMException && error.name === "TimeoutError")) throw error;
+      if (context?.signal?.aborted === true || (error instanceof DOMException && error.name === "TimeoutError")) {
+        void cancelHttpExecution(this.#fetch, this.#endpoint, headers, context);
+        throw error;
+      }
       throw new ProviderUnavailableError(OFFLINE_DETAIL, "unknown");
     }
     if (!response.ok) {

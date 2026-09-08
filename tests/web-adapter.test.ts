@@ -86,9 +86,9 @@ describe("web adapter", () => {
       expect(run).toHaveBeenCalledOnce();
     });
 
-    expect(run).toHaveBeenCalledWith('console.log("source")', {
+    expect(run).toHaveBeenCalledWith('console.log("source")', expect.objectContaining({
       signal: expect.any(AbortSignal) as AbortSignal
-    });
+    }));
     expect(document.querySelector(".rcb__output")?.textContent).toBe("Hello");
   });
 

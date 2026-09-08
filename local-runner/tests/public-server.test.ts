@@ -1,7 +1,7 @@
 // @vitest-environment node
 import type { AddressInfo } from "node:net";
 import { afterEach, describe, expect, it, vi } from "vitest";
-import type { ExecutionEngine } from "../src/engine";
+import { ExecutionCancelledError, type ExecutionEngine } from "../src/engine";
 import { createPublicRunnerServer } from "../src/public-server";
 
 const ORIGIN = "https://woonyong-kr.github.io";
@@ -13,6 +13,64 @@ afterEach(async () => {
 });
 
 describe("public runner HTTP boundary", () => {
+  it("acknowledges cancellation only after engine cleanup, and never restarts that ID", async () => {
+    let stopped = false;
+    let finishCleanup: () => void = () => undefined;
+    const engine = fakeEngine();
+    engine.run.mockImplementation(async (_language: string, _code: string, signal: AbortSignal) =>
+      await new Promise((_resolve, reject) => {
+        signal.addEventListener("abort", () => {
+          stopped = true;
+          finishCleanup = () => reject(new ExecutionCancelledError());
+        }, { once: true });
+      }));
+    const endpoint = await listen(engine);
+    const pending = run(endpoint, REQUEST_ID, "while True: pass", "python");
+    await vi.waitFor(() => expect(engine.run.mock.calls).toHaveLength(1));
+    let acknowledged = false;
+    const cancellation = cancel(endpoint).then((value) => { acknowledged = true; return value; });
+    await vi.waitFor(() => expect(stopped).toBe(true));
+    expect(acknowledged).toBe(false);
+    finishCleanup();
+    await expect((await cancellation).json()).resolves.toMatchObject({ state: "cancelled" });
+    expect((await pending).status).toBe(409);
+    expect((await run(endpoint, REQUEST_ID, "while True: pass", "python")).status).toBe(409);
+    expect(engine.run.mock.calls).toHaveLength(1);
+  });
+
+  it("can cancel its unguessable request ID after the client network address changes", async () => {
+    const engine = fakeEngine();
+    engine.run.mockImplementation(async (_language: string, _code: string, signal: AbortSignal) =>
+      await new Promise((_resolve, reject) => signal.addEventListener("abort", () => reject(new ExecutionCancelledError()), {once: true})));
+    const endpoint = await listen(engine);
+    const pending = run(endpoint, REQUEST_ID, "while True: pass", "python");
+    await vi.waitFor(() => expect(engine.run.mock.calls).toHaveLength(1));
+    const response = await fetch(`${endpoint}/v1/cancel`, { method: "POST", headers: {
+      Origin: ORIGIN, "X-Runnable-Request-Id": REQUEST_ID, "CF-Connecting-IP": "203.0.113.40"
+    } });
+    expect((await response.json() as {state:string}).state).toBe("cancelled");
+    expect((await pending).status).toBe(409);
+  });
+
+  it("remembers cancellation arriving before a delayed POST", async () => {
+    const engine = fakeEngine();
+    const endpoint = await listen(engine);
+    await expect((await cancel(endpoint)).json()).resolves.toMatchObject({ state: "cancelled" });
+    expect((await run(endpoint, REQUEST_ID, "while True: pass", "python")).status).toBe(409);
+    expect(engine.run.mock.calls).toHaveLength(0);
+  });
+
+  it("does not confirm cancellation when engine cleanup fails", async () => {
+    const engine = fakeEngine();
+    engine.run.mockImplementation(async (_language: string, _code: string, signal: AbortSignal) =>
+      await new Promise((_resolve, reject) => signal.addEventListener("abort", () => reject(new Error("Docker unavailable")), { once: true })));
+    const endpoint = await listen(engine);
+    const pending = run(endpoint, REQUEST_ID, "source", "python");
+    await vi.waitFor(() => expect(engine.run.mock.calls).toHaveLength(1));
+    await expect((await cancel(endpoint)).json()).resolves.toMatchObject({ state: "unknown" });
+    await pending;
+  });
+
   it("exposes minimal health without opening execution to other origins", async () => {
     const endpoint = await listen(fakeEngine());
     await expect(fetch(`${endpoint}/v1/health`)).resolves.toMatchObject({ status: 200 });
@@ -26,6 +84,7 @@ describe("public runner HTTP boundary", () => {
     expect(response.status).toBe(200);
     expect(response.headers.get("access-control-allow-origin")).toBe(ORIGIN);
     await expect(response.json()).resolves.toEqual({
+      cancellation: true,
       languages: ["java"],
       protocolVersion: 1,
       runnerVersion: "0.1.0",
@@ -153,5 +212,12 @@ async function run(endpoint: string, requestId: string, code: string, language: 
       "X-Runnable-Request-Id": requestId
     },
     method: "POST"
+  });
+}
+
+async function cancel(endpoint: string): Promise<Response> {
+  return await fetch(`${endpoint}/v1/cancel`, {
+    method: "POST",
+    headers: { Origin: ORIGIN, "X-Runnable-Request-Id": REQUEST_ID }
   });
 }

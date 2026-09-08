@@ -18,6 +18,7 @@ describe("local runner HTTP boundary", () => {
     const response = await fetch(`${endpoint}/v1/capabilities`, { headers: authHeaders() });
     expect(response.status).toBe(200);
     await expect(response.json()).resolves.toEqual({
+      cancellation: true,
       engine: "Docker test",
       languages: ["python"],
       protocolVersion: 1,

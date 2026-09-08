@@ -135,7 +135,6 @@ if (!readme.includes("does not access the filesystem")) errors.push("Community r
 if (!readme.includes("docs/assets/runnable-code-blocks-preview.png")) errors.push("README does not show the sharp execution preview");
 if (!readme.includes("docs/assets/runnable-code-blocks-demo.gif")) errors.push("README does not show the animated execution demo");
 if (!source.includes("script-src 'none'")) errors.push("HTML/CSS previews must block scripts");
-if (!source.includes("script-src 'unsafe-inline'")) errors.push("interactive web previews must explicitly allow inline scripts");
 if (!source.includes('"allow-scripts"')) errors.push("interactive web previews must use an isolated script sandbox");
 const discoveredOrigins = [...source.matchAll(/https?:\/\/[A-Za-z0-9.-]+/gu)].map(([origin]) => origin);
 for (const origin of new Set(discoveredOrigins)) {

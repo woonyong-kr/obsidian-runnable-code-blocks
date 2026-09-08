@@ -62,7 +62,8 @@
     "styles.css",
     "README.md",
     "LICENSE",
-    "versions.json"
+    "versions.json",
+    "THIRD_PARTY_NOTICES.md"
   ],
   "devDependencies": {
     "@codemirror/commands": "6.8.1",
@@ -91,6 +92,7 @@
     "vitest": "^4.1.11"
   },
   "dependencies": {
+    "@ampproject/worker-dom": "0.36.0",
     "react": "^19.2.8",
     "react-dom": "^19.2.8"
   }

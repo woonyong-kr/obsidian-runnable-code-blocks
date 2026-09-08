@@ -22,50 +22,38 @@ describe("browser adapters", () => {
     expect(documentWithHead.preview?.html).toContain("<head><meta http-equiv=");
   });
 
-  it("runs an interactive web document in an isolated, network-blocked preview", async () => {
-    const result = await new BrowserPreviewRunner("web").run(
-      "<button id=run>Run</button><script>console.log('ready')</script>"
-    );
-
-    expect(result.provider).toBe("Interactive browser sandbox");
+  it("keeps user JavaScript in Worker data, never in executable frame scripts", async () => {
+    const result = await new BrowserPreviewRunner("web").run('<button id="run">Run</button><script>console.log("worker-only-marker")</script>');
+    const frame = new DOMParser().parseFromString(result.preview?.html ?? "", "text/html");
+    const payload = JSON.parse(frame.querySelector("#rcb-preview-data")?.textContent ?? "{}") as { source: string; html: string };
+    expect(payload.source).toContain('console.log("worker-only-marker")');
+    expect(payload.html).toContain('<button id="run">Run</button>');
+    const executable = [...frame.querySelectorAll('script:not([type="application/json"])')];
+    expect(executable).toHaveLength(1);
+    expect(executable[0]?.textContent.includes("worker-only-marker")).toBe(false);
+    const policy = frame.head.firstElementChild?.getAttribute("content");
+    expect(policy).toMatch(/script-src 'nonce-[^']+'/u);
+    expect(policy).not.toContain("'unsafe-inline'; style");
+    expect(policy).toContain("connect-src 'none'");
     expect(result.preview?.scripts).toBe("isolated");
-    expect(result.preview?.html).toContain("script-src 'unsafe-inline'");
-    expect(result.preview?.html).toContain("connect-src 'none'");
-    expect(result.preview?.html).toContain("runnable-code-blocks-preview");
-    const document_ = new DOMParser().parseFromString(result.preview?.html ?? "", "text/html");
-    expect(document_.querySelector("#run")?.textContent).toBe("Run");
   });
 
-  it("places the security policy in the real document head despite deceptive markup", async () => {
-    const result = await new BrowserPreviewRunner("web").run(
-      '<!-- <head> is documentation, not a document element --><head><script>console.log("user")</script></head>'
-    );
-
-    const document_ = new DOMParser().parseFromString(result.preview?.html ?? "", "text/html");
-    const policy = document_.head.firstElementChild;
-    expect(policy?.tagName).toBe("META");
-    expect(policy?.getAttribute("http-equiv")).toBe("Content-Security-Policy");
-    expect(policy?.getAttribute("content")).toContain("connect-src 'none'");
-    const scripts = document_.head.querySelectorAll("script");
-    expect(scripts).toHaveLength(2);
-    expect(scripts[0]?.textContent).toContain("runnable-code-blocks-preview");
-    expect(scripts[1]?.textContent).toContain('console.log("user")');
+  it("places the policy before deceptive markup and keeps escaped script endings inert", async () => {
+    const result = await new BrowserPreviewRunner("web").run('<!-- <head> --><script>const x = "worker-only-marker";</script><img onerror="while(true){}">');
+    const frame = new DOMParser().parseFromString(result.preview?.html ?? "", "text/html");
+    expect(frame.head.firstElementChild?.getAttribute("http-equiv")).toBe("Content-Security-Policy");
+    expect(frame.querySelectorAll('script[nonce]')).toHaveLength(1);
+    expect(frame.querySelectorAll('[onerror]')).toHaveLength(0);
+    expect(frame.querySelector('script[nonce]')?.textContent.includes("worker-only-marker")).toBe(false);
   });
 
-  it("transpiles TypeScript script blocks before rendering an interactive preview", async () => {
-    const result = await new BrowserPreviewRunner("web-ts").run(`
-      <button id="run">Run</button>
-      <script type="text/typescript">
-        const button = document.querySelector<HTMLButtonElement>("#run")!;
-        button.textContent = "Ready";
-      </script>
-    `);
-
+  it("transpiles TypeScript before passing code to the Worker", async () => {
+    const result = await new BrowserPreviewRunner("web-ts").run('<script type="text/typescript">const button = document.querySelector<HTMLButtonElement>("#run")!; button.textContent = "Ready";</script>');
+    const frame = new DOMParser().parseFromString(result.preview?.html ?? "", "text/html");
+    const payload = JSON.parse(frame.querySelector("#rcb-preview-data")?.textContent ?? "{}") as { source: string };
+    expect(payload.source).not.toContain("querySelector<HTMLButtonElement>");
+    expect(payload.source).toContain('button.textContent = "Ready"');
     expect(result.exitCode).toBe(0);
-    expect(result.provider).toContain("Sucrase");
-    expect(result.preview?.scripts).toBe("isolated");
-    expect(result.preview?.html).not.toContain("HTMLButtonElement");
-    expect(result.preview?.html).toContain('type="text/javascript"');
   });
 
   it("compiles a React JSX and TypeScript component into the shared isolated preview", async () => {
@@ -85,18 +73,6 @@ describe("browser adapters", () => {
     expect(result.preview?.html).toContain("ReactDOMClient.createRoot");
     expect(result.preview?.html).toContain("React.createElement");
     expect(result.preview?.html).not.toContain("useState<number>");
-  });
-
-  it("exposes the bundled ReactDOM and react-dom/client module surfaces", async () => {
-    const result = await new BrowserPreviewRunner("react").run(`
-      import { createPortal } from "react-dom";
-      import { createRoot } from "react-dom/client";
-      export default function App() { return <div>{typeof createPortal}:{typeof createRoot}</div>; }
-    `);
-
-    expect(result.exitCode).toBe(0);
-    expect(result.preview?.html).toContain('specifier === "react-dom"');
-    expect(result.preview?.html).toContain('specifier === "react-dom/client"');
   });
 
   it("reports React JSX and TypeScript compilation errors before opening a preview", async () => {

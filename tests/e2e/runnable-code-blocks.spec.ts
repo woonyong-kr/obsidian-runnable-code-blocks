@@ -108,7 +108,8 @@ test("keeps an interactive preview navigation inside its sandbox", async ({ page
 location.href = "/preview-navigation-should-not-load";
 </script>`);
   await lesson.getByRole("button", { name: "Run code" }).click();
-  await expect(lesson.locator(".rcb__console-meta")).toContainText("Preview ready");
+  await expect(lesson.locator(".rcb")).toHaveAttribute("data-state", "error");
+  await expect(lesson.getByRole("button", {name: "Run code"})).toBeEnabled();
 
   expect(escapedRequests).toEqual([]);
 });
@@ -203,11 +204,10 @@ export default function App() {
   await expect(previewFrame).toHaveAttribute("referrerpolicy", "no-referrer");
   await expect(previewFrame).not.toHaveAttribute("sandbox", /allow-same-origin/u);
   await expect(previewFrame.contentFrame().getByText("Sandbox remains ready")).toBeVisible();
-  await expect.poll(() => failedRequests.length).toBe(1);
+  await expect(previewFrame.contentFrame().locator('script[src]')).toHaveCount(0);
 
-  expect(attemptedRequests).toHaveLength(1);
-  expect(failedRequests).toHaveLength(1);
-  expect(failedRequests[0]).toMatch(/csp/iu);
+  expect(attemptedRequests).toHaveLength(0);
+  expect(failedRequests).toHaveLength(0);
   expect(responses).toEqual([]);
   expect(page.url()).not.toContain("react-script-must-not-load");
 });
@@ -269,3 +269,69 @@ for (const width of [360, 1280]) {
     expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true);
   });
 }
+
+
+test("terminates a runaway preview Worker and allows a clean restart", async ({ page }) => {
+  test.setTimeout(15_000);
+  await page.goto("/");
+  const lesson = page.locator("[data-featured-test-case]");
+  await lesson.locator(".cm-content").fill(`export default function App() {
+    return <button onClick={() => { while (true) {} }}>Hang worker</button>;
+  }`);
+  const created = page.waitForEvent("worker");
+  await lesson.getByRole("button", { name: "Run code" }).click();
+  const worker = await created;
+  const closed = worker.waitForEvent("close", {timeout: 5_000});
+  await expect(lesson.locator(".rcb__console-meta")).toContainText("Preview ready");
+  const result = lesson.locator(".rcb__preview-frame").contentFrame().locator("#preview").contentFrame();
+  await result.getByRole("button", { name: "Hang worker" }).click({ noWaitAfter: true, timeout: 2_000 });
+  await lesson.getByRole("button", { name: "Stop", exact: true }).click({ timeout: 2_000 });
+  await expect(lesson.locator(".rcb")).toHaveAttribute("data-state", "cancelled");
+  await closed;
+  await lesson.locator(".cm-content").fill('export default function App() { return <p>Restarted after termination</p>; }');
+  await lesson.getByRole("button", { name: "Run code" }).click();
+  await expect(result.getByText("Restarted after termination")).toBeVisible();
+});
+
+for (const [name, code] of [
+  ["synchronous loop", "while (true) {}"],
+  ["microtask starvation", "Promise.resolve().then(function spin() { Promise.resolve().then(spin); });"],
+  ["native regular expression", 'while (true) /^(a+)+$/.test("a".repeat(35) + "!");']
+] as const) {
+  test(`automatically terminates a preview Worker after ${name}`, async ({ page }) => {
+    await page.goto("/");
+    const lesson = page.locator("[data-featured-test-case]");
+    await lesson.locator(".cm-content").fill(`export default function App() { ${code} return <p>Busy</p>; }`);
+    const created = page.waitForEvent("worker");
+    await lesson.getByRole("button", { name: "Run code" }).click();
+    const worker = await created;
+    const closed = worker.waitForEvent("close", { timeout: 4_000 });
+    await expect(lesson.locator(".rcb__output")).toContainText("did not respond within 2 seconds", { timeout: 4_000 });
+    await closed;
+    await expect(lesson.getByRole("button", { name: "Run code" })).toBeEnabled();
+    await lesson.locator(".cm-content").fill('export default function App() { return <p>Recovered</p>; }');
+    await lesson.getByRole("button", { name: "Run code" }).click();
+    await expect(lesson.locator(".rcb__preview-frame").contentFrame().locator("#preview").contentFrame().getByText("Recovered")).toBeVisible();
+  });
+}
+
+test("bridges web TypeScript events once and prevents Worker DOM scripts from executing on the frame", async ({ page }) => {
+  await page.goto("/");
+  await page.getByText("Run every language example").click();
+  const lesson = page.locator('.rcb[data-language="web-ts"]');
+  await lesson.locator(".cm-content").fill(`<button id="run">Ready</button><script type="text/typescript">
+    let count: number = 0;
+    document.querySelector<HTMLButtonElement>("#run")!.addEventListener("click", () => {
+      document.querySelector("#run")!.textContent = "Count " + ++count;
+      const script = document.createElement("script");
+      script.textContent = "while(true){}";
+      document.body.appendChild(script);
+    });
+  </script>`);
+  await lesson.getByRole("button", { name: "Run code" }).click();
+  const result = lesson.locator(".rcb__preview-frame").contentFrame().locator("#preview").contentFrame();
+  await result.getByRole("button", { name: "Ready" }).click();
+  await expect(result.getByRole("button", { name: "Count 1" })).toBeVisible();
+  await lesson.getByRole("button", { name: "Stop", exact: true }).click();
+  await expect(lesson.getByRole("button", { name: "Run code" })).toBeEnabled();
+});

@@ -221,7 +221,17 @@ export function mountRunnableBlock(host: HTMLElement, spec: RunnableBlockSpec): 
       output.textContent = "Waiting for result…";
       const result = await spec.runner.run(
         withoutTrailingDisplayLines(editor.getValue()),
-        { signal: controller.signal }
+        { signal: controller.signal, onCancellation: (state) => {
+          // Stop advances the generation once. A new Run/Reset/dispose invalidates this acknowledgement.
+          if (lifecycle.disposed || executionId !== id + 1 || root.dataset.state !== "cancelled") return;
+          if (state === "pending") {
+            consoleMeta.textContent = "Cancelling"; output.textContent = "Requesting server cancellation…"; return;
+          }
+          consoleMeta.textContent = state === "cancelled" ? "Cancelled" : state === "completed" ? "Already completed" : "Cancellation unconfirmed";
+          output.textContent = state === "cancelled" ? "Server execution cancelled; container removed."
+            : state === "completed" ? "The server execution had already completed."
+            : "Stopped waiting. Server cancellation could not be confirmed; its execution limit still applies.";
+        } }
       );
       if (!current()) return;
       const resultEnvironment = result.environment ?? spec.runner.environment;
@@ -321,8 +331,8 @@ export function mountRunnableBlock(host: HTMLElement, spec: RunnableBlockSpec): 
     consolePanel.hidden = false;
     consoleMeta.textContent = "Cancelled";
     output.hidden = false;
-    output.textContent = spec.runner.environment === "remote"
-      ? "Stopped waiting for a response. The remote job may still be running."
+    output.textContent = spec.runner.environment !== "browser"
+      ? "Stopped waiting for the execution response."
       : "Execution or preview stopped.";
   });
   retryButton.addEventListener("click", () => { if (!running && !checkingAvailability) void refreshAvailability(); });
@@ -419,6 +429,9 @@ function renderPreview(
   let rejectReady: (error: Error) => void = () => undefined;
   let resolveReady: () => void = () => undefined;
   let readySettled = false;
+  let disposing = false;
+  let removalTimer: number | undefined;
+  const remove = () => { window.clearTimeout(removalTimer); window.removeEventListener("message", receiveMessage); frame.remove(); };
   const ready = new Promise<void>((resolve, reject) => {
     rejectReady = reject;
     resolveReady = resolve;
@@ -432,6 +445,10 @@ function renderPreview(
     if (event.source !== frame.contentWindow || event.origin !== "null") return;
     if (typeof event.data !== "object" || event.data === null) return;
     const data = event.data as Record<string, unknown>;
+    if (disposing) {
+      if (data.sender === "runnable-code-blocks-container" && data.type === "stopped" && data.token === token) remove();
+      return;
+    }
     if (data.sender === "runnable-code-blocks-container" && data.type === "ready" && data.token === token) {
       frame.contentWindow?.postMessage({
         html: preview.html,
@@ -461,19 +478,25 @@ function renderPreview(
     }
     if (typeof data.message !== "string" || !isPreviewMessageType(data.type)) return;
     onMessage({ message: data.message.slice(0, 16_000), type: data.type });
+    if (data.type === "error" && !readySettled) {
+      readySettled = true; window.clearTimeout(readyTimeout); rejectReady(new Error(data.message));
+    }
   };
   window.addEventListener("message", receiveMessage);
   frame.srcdoc = previewContainerDocument(token);
   host.hidden = false;
   return {
     dispose: () => {
+      if (disposing) return;
+      disposing = true;
       if (!readySettled) {
         readySettled = true;
         window.clearTimeout(readyTimeout);
         rejectReady(new Error("Interactive preview was disposed before it became ready."));
       }
-      window.removeEventListener("message", receiveMessage);
-      frame.remove();
+      frame.hidden = true;
+      frame.contentWindow?.postMessage({ sender: "runnable-code-blocks-stop", token }, "*");
+      removalTimer = window.setTimeout(remove, 500);
     },
     ready
   };
@@ -485,7 +508,7 @@ function previewContainerDocument(token: string): string {
   const characterLimit = String(OUTPUT_LIMITS.characters);
   const truncationMarker = JSON.stringify(OUTPUT_LIMITS.marker);
   return `<!doctype html><html><head>
-<meta http-equiv="Content-Security-Policy" content="default-src 'none'; base-uri 'none'; connect-src 'none'; frame-src 'none'; img-src data: blob:; media-src data: blob:; object-src 'none'; script-src 'unsafe-inline'; style-src 'unsafe-inline'; worker-src 'none'">
+<meta http-equiv="Content-Security-Policy" content="default-src 'none'; base-uri 'none'; connect-src 'none'; frame-src 'none'; img-src data: blob:; media-src data: blob:; object-src 'none'; script-src 'unsafe-inline'; style-src 'unsafe-inline'; worker-src blob:">
 <style>html,body{border:0;margin:0;width:100%}#preview{border:0;display:block;min-height:1px;width:100%}</style>
 </head><body><script>
 (() => {
@@ -521,15 +544,24 @@ function previewContainerDocument(token: string): string {
         "allow",
         "camera 'none'; display-capture 'none'; geolocation 'none'; microphone 'none'; payment 'none'; usb 'none'"
       );
-      preview.addEventListener("load", () => {
+      if (data.scripts === "blocked") preview.addEventListener("load", () => {
         parent.postMessage({ sender: "runnable-code-blocks-container", type: "preview-ready", token }, "*");
       }, { once: true });
       preview.srcdoc = data.html;
       document.body.replaceChildren(preview);
       return;
     }
+    if (event.source === parent && data?.sender === "runnable-code-blocks-stop" && data.token === token) {
+      preview?.contentWindow.postMessage({sender: "runnable-code-blocks-stop"}, "*"); return;
+    }
     if (preview === null || event.source !== preview.contentWindow || event.origin !== "null") return;
     if (typeof data !== "object" || data === null || data.sender !== "runnable-code-blocks-preview") return;
+    if (data.type === "ready") {
+      parent.postMessage({ sender: "runnable-code-blocks-container", type: "preview-ready", token }, "*");
+    }
+    if (data.type === "stopped") {
+      parent.postMessage({ sender: "runnable-code-blocks-container", type: "stopped", token }, "*"); return;
+    }
     if (data.type === "resize" && typeof data.height === "number") {
       const height = previewHeight(data.height);
       if (height === null) return;

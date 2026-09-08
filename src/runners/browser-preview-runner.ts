@@ -1,6 +1,6 @@
 import type { CodeRunner, RunContext, RunResult } from "../contracts";
 import { appendElement } from "../dom";
-import { OUTPUT_LIMITS } from "../output-buffer";
+import { WORKER_BOOTSTRAP } from "../preview-worker/worker-bootstrap";
 
 type PreviewLanguage = "css" | "html" | "react" | "web" | "web-ts";
 
@@ -18,7 +18,7 @@ const STATIC_CSP = [
   "worker-src 'none'"
 ].join("; ");
 
-const INTERACTIVE_CSP = STATIC_CSP.replace("script-src 'none'", "script-src 'unsafe-inline'");
+
 
 const CSS_SPECIMEN = String.raw`
 <style>
@@ -51,43 +51,6 @@ const INTERACTIVE_BASE_STYLE = String.raw`<style>
   :root { color-scheme: light dark; font-family: Inter, ui-sans-serif, sans-serif; }
   body { margin: 0; padding: 24px; }
 </style>`;
-
-const CONSOLE_BRIDGE = String.raw`${INTERACTIVE_BASE_STYLE}<script>
-(() => {
-  const entryLimit = ${OUTPUT_LIMITS.entries};
-  const characterLimit = ${OUTPUT_LIMITS.characters};
-  const marker = ${JSON.stringify(OUTPUT_LIMITS.marker)};
-  let entries = 0;
-  let characters = 0;
-  let truncated = false;
-  const format = (value) => {
-    if (typeof value === "string") return value;
-    if (typeof value === "undefined") return "undefined";
-    try { return JSON.stringify(value, null, 2); } catch { return String(value); }
-  };
-  const send = (type, message) => {
-    if (truncated) return;
-    if (entries >= entryLimit || characters + message.length > characterLimit) {
-      truncated = true;
-      parent.postMessage({ sender: "runnable-code-blocks-preview", type: "warn", message: marker }, "*");
-      return;
-    }
-    entries += 1;
-    characters += message.length;
-    parent.postMessage({ sender: "runnable-code-blocks-preview", type, message }, "*");
-  };
-  for (const level of ["log", "info", "warn", "error"]) {
-    const original = console[level].bind(console);
-    console[level] = (...values) => {
-      send(level, values.map(format).join(" "));
-      original(...values);
-    };
-  }
-  window.addEventListener("error", (event) => send("error", event.error?.stack || event.message));
-  window.addEventListener("unhandledrejection", (event) => send("error", format(event.reason)));
-  window.addEventListener("DOMContentLoaded", () => send("ready", "Preview ready"), { once: true });
-})();
-</script>`;
 
 const HEIGHT_REPORTER = String.raw`
 (() => {
@@ -155,7 +118,7 @@ export class BrowserPreviewRunner implements CodeRunner {
     return this.language === "react" || this.language === "web" || this.language === "web-ts"
       ? {
           available: true,
-          detail: "Interactive code runs in an isolated frame. Network requests, external resources, popups, form submission, top navigation, and same-origin access are blocked."
+          detail: "Interactive code runs in a terminable Worker with a DOM bridge. Network requests, external resources, popups, form submission, top navigation, and same-origin access are blocked."
         }
       : {
           available: true,
@@ -175,7 +138,7 @@ export class BrowserPreviewRunner implements CodeRunner {
         const application = reactApplication(compiled, reactRuntime.source);
         return {
           ...previewResult(
-            secureDocument(application, INTERACTIVE_CSP, CONSOLE_BRIDGE),
+            await workerDocument(application),
             "isolated",
             provider
           ),
@@ -194,7 +157,7 @@ export class BrowserPreviewRunner implements CodeRunner {
     }
     if (this.language === "web") {
       return previewResult(
-        secureDocument(code, INTERACTIVE_CSP, CONSOLE_BRIDGE),
+        await workerDocument(code),
         "isolated",
         "Interactive browser sandbox"
       );
@@ -207,7 +170,7 @@ export class BrowserPreviewRunner implements CodeRunner {
       try {
         const html = transpileTypeScriptScripts(code, transform);
         return {
-          ...previewResult(secureDocument(html, INTERACTIVE_CSP, CONSOLE_BRIDGE), "isolated", provider),
+          ...previewResult(await workerDocument(html), "isolated", provider),
           durationMs: performance.now() - started
         };
       } catch (error) {
@@ -330,4 +293,34 @@ function escapeClosingStyle(css: string): string {
 
 function escapeClosingScript(javascript: string): string {
   return javascript.replace(/<\/script/giu, "<\\/script");
+}
+
+async function workerDocument(html: string): Promise<string> {
+  const { default: runtime } = await import("virtual:preview-worker-runtime");
+  const parsed = new DOMParser().parseFromString(html, "text/html");
+  const scripts: string[] = [];
+  for (const script of parsed.querySelectorAll("script")) {
+    if (script.src) throw new Error("External scripts are blocked. Use a self-contained example.");
+    if (!["", "text/javascript", "application/javascript", "module"].includes(script.type)) { script.remove(); continue; }
+    scripts.push(script.textContent);
+    script.remove();
+  }
+  let handlerId = 0;
+  for (const node of parsed.querySelectorAll("*")) {
+    for (const attribute of [...node.attributes]) {
+      if (!attribute.name.toLowerCase().startsWith("on")) continue;
+      const id = node.getAttribute("data-rcb-handler") ?? String(++handlerId);
+      node.setAttribute("data-rcb-handler", id);
+      scripts.push(`document.querySelector('[data-rcb-handler="${id}"]').addEventListener(${JSON.stringify(attribute.name.slice(2))}, function(event) { ${attribute.value} });`);
+      node.removeAttribute(attribute.name);
+    }
+  }
+  const nonce = createNonce();
+  const policy = STATIC_CSP.replace("script-src 'none'", `script-src 'nonce-${nonce}'`).replace("worker-src 'none'", "worker-src blob:");
+  const payload = {
+    html: `${INTERACTIVE_BASE_STYLE}${parsed.head.innerHTML}${parsed.body.innerHTML}`,
+    source: `${WORKER_BOOTSTRAP}\n${scripts.join(";\n")}\n;document.dispatchEvent(new Event('DOMContentLoaded', {bubbles: false})); self.postMessage({rcb:'ready'});`,
+    dom: runtime.worker
+  };
+  return `<!doctype html><html><head><meta http-equiv="Content-Security-Policy" content="${policy}"></head><body><script type="application/json" id="rcb-preview-data">${JSON.stringify(payload).replace(/</gu, "\\u003c")}</script><script nonce="${nonce}">${escapeClosingScript(runtime.main)}\n__RCB_PREVIEW__.start(JSON.parse(document.getElementById("rcb-preview-data").textContent));\n${HEIGHT_REPORTER}</script></body></html>`;
 }

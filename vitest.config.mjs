@@ -1,8 +1,10 @@
 import { defineConfig } from "vitest/config";
 import { reactRuntimeVitePlugin } from "./scripts/react-runtime-plugin.mjs";
 
+import { previewWorkerVitePlugin } from "./scripts/preview-worker-plugin.mjs";
+
 export default defineConfig({
-  plugins: [reactRuntimeVitePlugin()],
+  plugins: [reactRuntimeVitePlugin(), previewWorkerVitePlugin()],
   resolve: {
     alias: {
       obsidian: new URL("./tests/obsidian-runtime.ts", import.meta.url).pathname
@@ -13,7 +15,8 @@ export default defineConfig({
     environment: "happy-dom",
     setupFiles: ["./tests/setup-dom.ts"],
     coverage: {
-      exclude: ["site/main.ts"],
+      // The iframe entry is bundled as text and exercised by real-browser E2E; Node cannot instrument that execution.
+      exclude: ["site/main.ts", "src/preview-worker/frame.ts"],
       include: ["src/**/*.ts"],
       provider: "v8",
       reporter: ["text", "json-summary"],
