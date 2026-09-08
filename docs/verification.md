@@ -6,6 +6,8 @@ The full remote sample sweep passed for all 18 CLI-backed language samples on 20
 
 ## Automated verification
 
+The latest follow-up candidate `0e89664` passed the full `npm run verify` on 2026-09-08: 171 unit tests and 24 Chromium E2E tests, plus type/lint, Knip, build, release/media policy checks, and package dry run. Its single-button manual/automatic termination and recovery scenarios also passed all 12 Chromium/Firefox/WebKit cases. The six cross-browser hover/focus cases passed separately. Earlier counts below are retained as dated evidence.
+
 `npm run verify` passed on 2026-09-08 for source commit `2cf76a9` (the next release candidate, still carrying manifest version 0.7.0):
 
 - TypeScript strict checking and ESLint, including `eslint-plugin-obsidianmd` Community rules;
