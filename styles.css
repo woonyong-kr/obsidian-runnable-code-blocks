@@ -56,7 +56,7 @@
 }
 
 .rcb:hover .rcb__button--source,
-.rcb:focus-within .rcb__button--source {
+.rcb:has(:focus-visible) .rcb__button--source {
   opacity: 1;
   pointer-events: auto;
 }

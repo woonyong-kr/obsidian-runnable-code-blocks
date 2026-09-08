@@ -115,6 +115,10 @@ test("keeps Live Preview hover from adding a second frame or moving the runner",
     runner.before(host);
     host.append(content);
     content.append(runner);
+    const edit = document.createElement("button");
+    edit.className = "rcb__button rcb__button--source";
+    edit.setAttribute("aria-label", "Edit source");
+    runner.querySelector(".rcb__actions")?.prepend(edit);
   });
   await page.addStyleTag({ content: `
     .markdown-source-view.mod-cm6 .cm-embed-block { position: relative; --embed-block-shadow-hover: inset 0 0 0 2px #aaa; }
@@ -131,6 +135,16 @@ test("keeps Live Preview hover from adding a second frame or moving the runner",
   expect(await block.boundingBox()).toEqual(before);
   const hostBounds = await host.boundingBox();
   expect(hostBounds?.height).toBe(before?.height);
+  const edit = host.getByRole("button", { name: "Edit source" });
+  await expect(edit).toHaveCSS("opacity", "1");
+  await page.mouse.move(0, 0);
+  await expect(edit).toHaveCSS("opacity", "0");
+  await page.keyboard.press("Tab");
+  await edit.focus();
+  await expect(edit).toHaveCSS("opacity", "1");
+  await page.keyboard.press("Tab");
+  await expect(host.getByRole("button", { name: "Copy code", exact: true })).toBeFocused();
+
 
 });
 
