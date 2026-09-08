@@ -26,6 +26,38 @@
   overflow: hidden;
 }
 
+/* Live Preview supplies its own edit-source action around a rendered fence. */
+.markdown-source-view.mod-cm6 .cm-embed-block:has(> div > .rcb) {
+  --embed-block-shadow-hover: none;
+  margin-block: 1rem;
+}
+
+.cm-embed-block > div > .rcb {
+  margin-block: 0;
+}
+
+.cm-embed-block > div > .rcb > .rcb__toolbar {
+  /* Keep the host edit-source action beside Run, including before hover. */
+  padding-inline-end: calc(var(--size-4-3, 12px) + var(--rcb-control-height) + 7px);
+}
+
+.markdown-source-view.mod-cm6 .cm-embed-block:has(> div > .rcb) > .embed-actions {
+  top: calc(var(--size-4-2, 8px) + 1px);
+  inset-inline-end: calc(var(--size-4-3, 12px) + 1px);
+}
+
+.cm-embed-block:has(> div > .rcb) > .embed-actions > .edit-block-button {
+  height: var(--input-height, 30px);
+  width: var(--input-height, 30px);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.markdown-source-view.mod-cm6 .cm-embed-block:has(> div > .rcb):focus-within > .embed-actions {
+  opacity: 1;
+}
+
 .rcb .rcb__button[hidden],
 .rcb .rcb__console[hidden],
 .rcb .rcb__notice[hidden],

@@ -95,6 +95,53 @@ test("inherits host theme tokens and shows a keyboard focus ring", async ({ page
   expect(activeRow.codePadding).toBe("8px");
 });
 
+test("keeps the Live Preview hover frame and source action outside runner controls", async ({ page }) => {
+  await page.goto("/");
+  const lesson = page.locator("[data-featured-test-case]");
+  await lesson.evaluate((element) => {
+    element.classList.add("markdown-source-view", "mod-cm6");
+    const runner = element.querySelector(".rcb");
+    if (!runner) throw new Error("Runner is missing");
+    const host = document.createElement("div");
+    host.className = "cm-embed-block";
+    const content = document.createElement("div");
+    runner.before(host);
+    host.append(content);
+    content.append(runner);
+    const actions = document.createElement("div");
+    actions.className = "embed-actions";
+    const edit = document.createElement("button");
+    edit.className = "edit-block-button";
+    edit.setAttribute("aria-label", "Edit source");
+    edit.onclick = () => host.setAttribute("data-source-edit-requested", "true");
+    actions.append(edit);
+    host.append(actions);
+  });
+  await page.addStyleTag({ content: `
+    .markdown-source-view.mod-cm6 .cm-embed-block { position: relative; --embed-block-shadow-hover: inset 0 0 0 2px #aaa; }
+    .markdown-source-view.mod-cm6 .cm-embed-block:not(.cm-table-widget, .cm-lang-base):hover { box-shadow: var(--embed-block-shadow-hover); overflow: hidden; }
+    .markdown-source-view.mod-cm6 .embed-actions { position: absolute; top: 4px; inset-inline-end: 4px; opacity: 0; }
+    .markdown-source-view.mod-cm6 .cm-embed-block:hover .embed-actions { opacity: 1; }
+  ` });
+  const host = lesson.locator(".cm-embed-block");
+  const block = host.locator(".rcb");
+  await block.scrollIntoViewIfNeeded();
+  const before = await block.boundingBox();
+  await block.hover();
+  await expect(host).toHaveCSS("box-shadow", "none");
+  expect(await block.boundingBox()).toEqual(before);
+  const hostBounds = await host.boundingBox();
+  expect(hostBounds?.height).toBe(before?.height);
+  const edit = host.getByRole("button", { name: "Edit source" });
+  const sourceBounds = await edit.boundingBox();
+  const runBounds = await host.getByRole("button", { name: "Run code" }).boundingBox();
+  if (!sourceBounds || !runBounds) throw new Error("Toolbar action is missing");
+  expect(sourceBounds.x - (runBounds.x + runBounds.width)).toBeGreaterThanOrEqual(7);
+  expect(Math.abs(sourceBounds.y - runBounds.y)).toBeLessThan(1);
+  await edit.click();
+  await expect(host).toHaveAttribute("data-source-edit-requested", "true");
+});
+
 test("allows 102 numbered lines before the editor itself scrolls", async ({ page }) => {
   await page.goto("/");
   const editor = page.locator("[data-featured-test-case] .cm-content");
