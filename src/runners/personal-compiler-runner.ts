@@ -1,5 +1,6 @@
 import { cancelHttpExecution } from "./cancel-http-execution";
 import type { CodeRunner, RunContext, RunResult, RunnerAvailability } from "../contracts";
+import { executionFailureReason } from "../contracts";
 import { fetchWithTimeout, type FetchLike, unavailableFetch } from "./http-client";
 import { ProviderUnavailableError } from "./provider-errors";
 
@@ -25,6 +26,7 @@ interface PublicRunResponse {
   provider: string;
   stderr: string;
   stdout: string;
+  failureReason?: unknown;
 }
 
 interface PublicErrorResponse {
@@ -118,6 +120,7 @@ export class PersonalCompilerRunner implements CodeRunner {
       durationMs: value.durationMs,
       environment: "remote",
       exitCode: value.exitCode,
+      failureReason: executionFailureReason(value.failureReason),
       provider: value.provider,
       stderr: value.stderr,
       stdout: value.stdout

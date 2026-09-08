@@ -12,6 +12,12 @@ afterEach(() => {
 });
 
 describe("PersonalCompilerRunner", () => {
+  it.each(["timeout", "out-of-memory", "output-limit", "process-exit", "future-reason"])("preserves known execution metadata (%s) without resubmitting source", async failureReason => {
+    const fetch_ = vi.fn(async () => json({durationMs: 15_100, exitCode: 124, language: "kotlin", provider: "personal", stdout: "", stderr: "Independent diagnostic", failureReason}));
+    const runner = new PersonalCompilerRunner({endpoint: "https://runner.example.com", fetch: fetch_, language: "kotlin"});
+    await expect(runner.run("source")).resolves.toMatchObject({exitCode: 124, stderr: "Independent diagnostic", failureReason: failureReason === "future-reason" ? undefined : failureReason});
+    expect(fetch_).toHaveBeenCalledOnce();
+  });
   it("cancels the same server request without source and reports only the server acknowledgement", async () => {
     const controller = new AbortController();
     const cancellation = vi.fn();

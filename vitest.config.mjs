@@ -16,7 +16,7 @@ export default defineConfig({
     setupFiles: ["./tests/setup-dom.ts"],
     coverage: {
       // The iframe entry is bundled as text and exercised by real-browser E2E; Node cannot instrument that execution.
-      exclude: ["site/main.ts", "src/preview-worker/frame.ts"],
+      exclude: ["site/main.ts", "src/preview-worker/frame.ts", "src/preview-worker/canvas.ts"],
       include: ["src/**/*.ts"],
       provider: "v8",
       reporter: ["text", "json-summary"],

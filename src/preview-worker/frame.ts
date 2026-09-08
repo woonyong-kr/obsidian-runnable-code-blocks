@@ -19,12 +19,18 @@ export function start(payload: Payload): void {
   let entries = 0;
   let characters = 0;
   let truncated = false;
+  const canvasFrames = new Map<string, ImageBitmap>();
+  const canvasSizes = new Map<string, number>();
+  let canvasTimer: number | undefined;
   const send = (type: string, message: string) => parent.postMessage({ sender: "runnable-code-blocks-preview", type, message }, "*");
   const stop = (message?: string) => {
     if (stopped) return;
     stopped = true;
     worker?.terminate();
     window.clearInterval(watchdog);
+    window.clearTimeout(canvasTimer);
+    for (const bitmap of canvasFrames.values()) bitmap.close();
+    canvasFrames.clear();
     if (message) send("error", message);
   };
   const watchdog = window.setInterval(() => {
@@ -72,6 +78,25 @@ export function start(payload: Payload): void {
     nativeRemove.call(this, type, listener === null ? null : listenerWrappers.get(listener) ?? listener, options);
   };
 
+  const presentCanvases = () => {
+    canvasTimer = undefined;
+    if (stopped) return;
+    for (const [id, bitmap] of canvasFrames) {
+      const canvas = root.querySelector(`canvas.${id}`);
+      if (!(canvas instanceof HTMLCanvasElement)) continue;
+      if (canvas instanceof HTMLCanvasElement) {
+        if (canvas.width !== bitmap.width) canvas.width = bitmap.width;
+        if (canvas.height !== bitmap.height) canvas.height = bitmap.height;
+        const context = canvas.getContext("2d");
+        context?.clearRect(0, 0, canvas.width, canvas.height);
+        context?.drawImage(bitmap, 0, 0);
+      }
+      bitmap.close();
+      canvasFrames.delete(id);
+      worker?.postMessage({rcb: "canvas-ack", id});
+    }
+  };
+
   // Validate and bound the transport before Worker DOM consumes any mutation.
   class GuardedWorker extends NativeWorker {
     #receive: ((event: MessageEvent) => void) | null = null;
@@ -82,10 +107,28 @@ export function start(payload: Payload): void {
       if (typeof url === "string") URL.revokeObjectURL(url);
       super.addEventListener("error", (event) => { event.preventDefault(); stop(event.message); });
       super.addEventListener("message", (event: MessageEvent<unknown>) => {
-        if (stopped || typeof event.data !== "object" || event.data === null) return;
+        if (typeof event.data !== "object" || event.data === null) return;
+        const data = event.data as Record<string, unknown>;
+        if (stopped) { if (data.bitmap instanceof ImageBitmap) data.bitmap.close(); return; }
         if (performance.now() - windowStarted > 1_000) { windowStarted = performance.now(); messages = 0; domMessages = 0; bytes = 0; }
         if (++messages > 1_000) { stop("Preview stopped: message rate limit exceeded."); return; }
-        const data = event.data as Record<string, unknown>;
+        if (data.rcb === "canvas") {
+          const bitmap = data.bitmap;
+          if (!(bitmap instanceof ImageBitmap)) { stop("Preview stopped: invalid canvas frame."); return; }
+          const id = data.id;
+          const pixels = bitmap.width * bitmap.height;
+          const total = [...canvasSizes.values()].reduce((sum, value) => sum + value, 0) - (canvasSizes.get(String(id)) ?? 0) + pixels;
+          if (typeof id !== "string" || !/^rcb-canvas-[0-9a-f]{32}$/u.test(id)
+            || bitmap.width > 2_048 || bitmap.height > 2_048 || pixels > 1_048_576 || total > 4_194_304
+            || (!canvasSizes.has(id) && canvasSizes.size >= 8) || canvasFrames.has(id)) {
+            bitmap.close(); stop("Preview stopped: canvas resource limit exceeded."); return;
+          }
+          canvasSizes.set(id, pixels);
+          canvasFrames.set(id, bitmap);
+          // One in-flight bitmap per canvas, at most 30 presentations/second.
+          canvasTimer ??= window.setTimeout(presentCanvases, 34);
+          return;
+        }
         if (data.rcb === "pong") {
           if (challenge !== undefined && data.challenge === challenge) { challenge = undefined; lastHeartbeat = performance.now(); }
           return;
@@ -158,13 +201,16 @@ export function start(payload: Payload): void {
       installingListeners = true;
       try { flush(); } catch { stop("Preview stopped: invalid DOM mutation."); }
       finally { installingListeners = false; }
+      if (canvasFrames.size > 0) canvasTimer ??= window.setTimeout(presentCanvases, 34);
     }, 0),
-    // No generic object method calls, storage, canvas, or script execution on the frame thread.
+    // No generic object method calls, storage, or author script execution on the frame thread.
     executorsAllowed: [0, 1, 2, 3, 4, 5],
     sanitizer: {
       sanitize: safeTag,
       setAttribute: (node: Element, name: string, value: string | null) => {
         if (!safeAttribute(name, value)) return;
+        if (node instanceof HTMLCanvasElement && ["width", "height"].includes(name.toLowerCase())
+          && value !== null && (!/^\d+$/u.test(value) || Number(value) > 2_048)) value = "0";
         if (value === null) node.removeAttribute(name); else node.setAttribute(name, value);
       },
       setProperty: (node: Element, name: string, value: string) => {

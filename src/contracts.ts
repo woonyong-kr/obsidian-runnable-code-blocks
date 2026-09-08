@@ -12,6 +12,7 @@ export interface RunResult {
   durationMs: number;
   environment?: RunnerEnvironment;
   exitCode: number;
+  failureReason?: "timeout" | "output-limit" | "out-of-memory" | "process-exit";
   provider?: string;
   preview?: {
     html: string;
@@ -25,6 +26,13 @@ export interface RunResult {
 export interface RunContext {
   signal?: AbortSignal;
   onCancellation?: (state: "pending" | "cancelled" | "completed" | "unknown") => void;
+}
+
+export function executionFailureReason(value: unknown): RunResult["failureReason"] {
+  switch (value) {
+    case "timeout": case "output-limit": case "out-of-memory": case "process-exit": return value;
+    default: return undefined;
+  }
 }
 
 export interface CodeRunner {
