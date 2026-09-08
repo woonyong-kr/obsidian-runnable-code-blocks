@@ -17,7 +17,7 @@ const installedImages = [
 
 it("shares capability discovery across clients, matches pinned digests and expires its short cache", async () => {
   vi.useFakeTimers({toFake: ["Date"]});
-  const fixture = await fakeDocker({images: installedImages});
+  const fixture = await fakeImageInventory(installedImages);
   const engine = new DockerEngine(fixture.binary);
   const results = await Promise.all(Array.from({length: 6}, async () => await engine.availableLanguages()));
   for (const result of results) expect(result).toEqual(["kotlin", "python"]);
@@ -30,9 +30,9 @@ it("shares capability discovery across clients, matches pinned digests and expir
 });
 
 it("does not cache a failed Docker inventory lookup", async () => {
-  const fixture = await fakeDocker({images: installedImages, failImagesOnce: true});
+  const fixture = await fakeImageInventory(installedImages, true);
   const engine = new DockerEngine(fixture.binary);
-  await expect(engine.availableLanguages()).rejects.toThrow();
+  await expect(engine.availableLanguages()).rejects.toThrow("Docker temporarily unavailable");
   expect(await engine.availableLanguages()).toEqual(["kotlin", "python"]);
 });
 
@@ -93,13 +93,37 @@ it.each([true, false])("distinguishes confirmed OOM from an unexplained nonzero 
   expect(await fixture.events()).toContain("removed");
 });
 
-async function fakeDocker(options: { pauseCreate?: boolean; pauseRemove?: boolean; failRemove?: boolean; exitCode?: number; oom?: boolean; images?: string[]; failImagesOnce?: boolean }) {
+async function fakeImageInventory(images: string[], failOnce = false) {
+  const path = await mkdtemp(join(tmpdir(), "rcb-image-inventory-"));
+  directories.push(path);
+  const binary = join(path, "docker");
+  const events = join(path, "events");
+  const writeImages = async (value: string[]) => { await writeFile(join(path, "images"), value.join("\n")); };
+  await writeImages(images);
+  await writeFile(events, "");
+  if (failOnce) await writeFile(join(path, "fail-once"), "");
+  // Inventory/cache behavior should not depend on booting a Node VM inside the
+  // production two-second Docker deadline. Keep a real executable boundary.
+  await writeFile(binary, `#!/bin/sh
+cd -- "$(dirname -- "$0")" || exit 2
+[ "$1" = image ] && [ "$2" = ls ] || exit 2
+printf 'listing\\n' >> events
+if [ -f fail-once ]; then
+  rm fail-once
+  printf 'Docker temporarily unavailable\\n' >&2
+  exit 1
+fi
+cat images
+`, { mode: 0o700 });
+  return { binary, images: writeImages, events: async () => (await readFile(events, "utf8")).split("\n") };
+}
+
+async function fakeDocker(options: { pauseCreate?: boolean; pauseRemove?: boolean; failRemove?: boolean; exitCode?: number; oom?: boolean }) {
   const path = await mkdtemp(join(tmpdir(), "rcb-cancel-engine-"));
   directories.push(path);
   const binary = join(path, "docker");
   const events = join(path, "events");
   await writeFile(events, "");
-  await writeFile(join(path, "images"), JSON.stringify(options.images ?? []));
   await writeFile(binary, `#!${process.execPath}
 const fs = require('node:fs');
 const dir = ${JSON.stringify(path)}, options = ${JSON.stringify(options)};
@@ -108,18 +132,6 @@ const wait = name => new Promise(resolve => { const timer = setInterval(() => { 
 (async () => {
   const command = process.argv[2];
   if (command === 'version') { log('version'); process.stdout.write('29.4'); return; }
-  if (command === 'image') {
-    if (!options.images) return;
-    const images = JSON.parse(fs.readFileSync(dir + '/images', 'utf8'));
-    if (process.argv[3] === 'ls') {
-      log('listing');
-      if(options.failImagesOnce && !fs.existsSync(dir + '/failed')) {fs.writeFileSync(dir + '/failed', ''); throw Error('Docker temporarily unavailable');}
-      process.stdout.write(images.join('\\n')); return;
-    }
-    log('inspect'); const normalize = value => value.replace(/^docker\\.io\\/(?:library\\/)?/, '');
-    if (!images.map(normalize).includes(normalize(process.argv[4]))) process.exitCode = 1;
-    return;
-  }
   if (command === 'create') { log('creating'); if (options.pauseCreate) await wait('create'); fs.writeFileSync(dir + '/container', 'exists'); log('created'); return; }
   if (command === 'inspect') { process.stdout.write(String(options.oom === true)); return; }
   if (command === 'start') { log('start'); if (options.exitCode) { process.exitCode = options.exitCode; return; } process.stdin.resume(); setInterval(() => {}, 1000); return; }
@@ -130,5 +142,5 @@ const wait = name => new Promise(resolve => { const timer = setInterval(() => { 
   }
 })().catch(e => { console.error(e); process.exitCode=1; });
 `, { mode: 0o700 });
-  return { binary, images: async (value: string[]) => { await writeFile(join(path, "images"), JSON.stringify(value)); }, events: async () => (await readFile(events, "utf8")).split("\n"), release: async (name: string) => { await writeFile(join(path, name), ""); } };
+  return { binary, events: async () => (await readFile(events, "utf8")).split("\n"), release: async (name: string) => { await writeFile(join(path, name), ""); } };
 }

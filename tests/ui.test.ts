@@ -1,6 +1,7 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
 import type { CodeRunner, RunContext, RunResult } from "../src/contracts";
 import { mountRunnableBlock } from "../src/ui";
+import { ProviderUnavailableError } from "../src/runners/provider-errors";
 
 function createRunner(overrides: Partial<CodeRunner> = {}): CodeRunner {
   return {
@@ -34,6 +35,43 @@ afterEach(() => {
 });
 
 describe("runnable block UI", () => {
+  it.each(["early timer", "wall clock adjustment"] as const)("releases a rate-limit cooldown after %s", async (clockEvent) => {
+    const host = document.body.appendChild(document.createElement("div"));
+    const run = vi.fn(async () => { throw new ProviderUnavailableError("Busy", "not-started", { retryAfterMs: 1000 }); });
+    const mounted = mountRunnableBlock(host, { code: "source", language: "java", runner: createRunner({ run }) });
+    const retry = host.querySelector<HTMLButtonElement>(".rcb__button--retry");
+    await vi.waitFor(() => expect(host.querySelector<HTMLButtonElement>(".rcb__button--run")?.disabled).toBe(false));
+    vi.useFakeTimers({ toFake: ["setTimeout", "clearTimeout", "Date", "performance"] });
+    const schedule = window.setTimeout.bind(window);
+    let earlyWake = false;
+    let disabledAtEarlyWake: boolean | undefined;
+    try {
+      vi.spyOn(window, "setTimeout").mockImplementation((handler, delay, ...args) => {
+        if (clockEvent === "early timer" && delay === 1000 && typeof handler === "function") {
+          return schedule(() => {
+            earlyWake = true;
+            handler(...args);
+            disabledAtEarlyWake = retry?.disabled;
+          }, 999) as unknown as ReturnType<typeof window.setTimeout>;
+        }
+        return schedule(handler, delay, ...args) as unknown as ReturnType<typeof window.setTimeout>;
+      });
+      host.querySelector<HTMLButtonElement>(".rcb__button--run")?.click();
+      await vi.waitFor(() => expect(host.querySelector(".rcb")?.getAttribute("data-state")).toBe("unavailable"));
+      expect(retry?.disabled).toBe(true);
+      if (clockEvent === "wall clock adjustment") vi.setSystemTime(Date.now() - 60_000);
+      await vi.advanceTimersByTimeAsync(1000);
+      expect(earlyWake).toBe(clockEvent === "early timer");
+      if (clockEvent === "early timer") expect(disabledAtEarlyWake).toBe(true);
+      expect(retry?.disabled).toBe(false);
+      expect(run).toHaveBeenCalledOnce();
+    } finally {
+      mounted.dispose();
+      vi.restoreAllMocks();
+      vi.useRealTimers();
+    }
+  });
+
   it("rechecks an offline runner without losing edited source", async () => {
     let online = false;
     const host = document.body.appendChild(document.createElement("div"));
