@@ -323,7 +323,7 @@ async function workerDocument(html: string): Promise<string> {
   const policy = STATIC_CSP.replace("script-src 'none'", `script-src 'nonce-${nonce}'`).replace("worker-src 'none'", "worker-src blob:");
   const payload = {
     html: `${INTERACTIVE_BASE_STYLE}${parsed.head.innerHTML}${parsed.body.innerHTML}`,
-    source: `${WORKER_BOOTSTRAP}\n${scripts.join(";\n")}\n;document.dispatchEvent(new Event('DOMContentLoaded', {bubbles: false})); self.postMessage({rcb:'ready'});`,
+    source: `${WORKER_BOOTSTRAP}\n${runtime.canvas}\n${scripts.join(";\n")}\n;document.dispatchEvent(new Event('DOMContentLoaded', {bubbles: false})); self.postMessage({rcb:'ready'});`,
     dom: runtime.worker
   };
   return `<!doctype html><html><head><meta http-equiv="Content-Security-Policy" content="${policy}"></head><body><script type="application/json" id="rcb-preview-data">${JSON.stringify(payload).replace(/</gu, "\\u003c")}</script><script nonce="${nonce}">${escapeClosingScript(runtime.main)}\n__RCB_PREVIEW__.start(JSON.parse(document.getElementById("rcb-preview-data").textContent));\n${HEIGHT_REPORTER}</script></body></html>`;

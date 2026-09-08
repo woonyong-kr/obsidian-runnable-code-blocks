@@ -13,6 +13,7 @@ export interface EngineResult {
   provider: string;
   stderr: string;
   stdout: string;
+  failureReason?: "timeout" | "output-limit" | "out-of-memory" | "process-exit";
 }
 
 export interface ExecutionEngine {
@@ -76,6 +77,17 @@ export class DockerEngine implements ExecutionEngine {
       if (signal?.aborted !== true) {
         const child = spawn(this.#binary, ["start", "--attach", "--interactive", name], { stdio: ["pipe", "pipe", "pipe"] });
         result = await collectProcess(child, code, name, this.#binary, signal, Math.max(1, TIMEOUT_MS - (performance.now() - started)));
+        throwIfCancelled(signal);
+        if (result.exitCode !== 0 && result.failureReason === undefined) {
+          let outOfMemory = false;
+          try {
+            const state = await exec(this.#binary, ["inspect", "--format", "{{.State.OOMKilled}}", name], { timeout: 1_000 });
+            outOfMemory = state.stdout.trim() === "true";
+          } catch { /* A missing diagnostic must not prevent container cleanup. */ }
+          result.failureReason = outOfMemory ? "out-of-memory" : "process-exit";
+          if (outOfMemory) result.stderr += "\nExecution exceeded the container memory limit (512 MiB).";
+          else if (!result.stderr.trim()) result.stderr = `Process exited with code ${String(result.exitCode)} before producing diagnostics.`;
+        }
       } else {
         result = { exitCode: 137, stderr: "", stdout: "" };
       }
@@ -155,6 +167,7 @@ async function collectProcess(
   let stdout = "";
   let stderr = "";
   let outputExceeded = false;
+  let timedOut = false;
   let settled = false;
   let termination: Promise<void> | undefined;
   const append = (current: string, chunk: Buffer): string => {
@@ -169,7 +182,7 @@ async function collectProcess(
   };
   const abort = () => terminate();
   signal?.addEventListener("abort", abort, { once: true });
-  const timeout = setTimeout(terminate, timeoutMs);
+  const timeout = setTimeout(() => { timedOut = true; terminate(); }, timeoutMs);
   child.stdout.on("data", (chunk: Buffer) => {
     stdout = append(stdout, chunk);
     if (stdout.length + stderr.length >= OUTPUT_LIMIT) {
@@ -197,8 +210,12 @@ async function collectProcess(
           resolve({ exitCode: 137, stderr, stdout });
           return;
         }
+        if (timedOut) {
+          resolve({ exitCode: 124, failureReason: "timeout", stderr: `${stderr}\nExecution timed out after 15 seconds (compilation included). Simplify the code or try again when the server is less busy.`, stdout });
+          return;
+        }
         if (outputExceeded) stderr += "\n[output truncated at 64000 characters]";
-        resolve({ exitCode: code_ ?? 137, stderr, stdout });
+        resolve({ exitCode: code_ ?? 137, ...(outputExceeded ? {failureReason: "output-limit" as const} : {}), stderr, stdout });
       });
     });
   } finally {

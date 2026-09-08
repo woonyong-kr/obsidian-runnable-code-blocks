@@ -4,7 +4,7 @@ declare module "virtual:react-runtime" {
 }
 
 declare module "virtual:preview-worker-runtime" {
-  const runtime: Readonly<{ main: string; worker: string }>;
+  const runtime: Readonly<{ main: string; worker: string; canvas: string }>;
   export default runtime;
 }
 declare module "@ampproject/worker-dom/dist/amp-production/main.mjs" {

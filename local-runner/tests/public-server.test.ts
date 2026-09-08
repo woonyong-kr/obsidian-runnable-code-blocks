@@ -13,6 +13,13 @@ afterEach(async () => {
 });
 
 describe("public runner HTTP boundary", () => {
+  it("returns a compiler failure reason and reuses the completed request without running twice", async () => {
+    const engine = fakeEngine();
+    engine.run.mockResolvedValue({durationMs: 15_050, exitCode: 124, failureReason: "timeout", provider: "test", stderr: "Compilation deadline exceeded", stdout: ""});
+    const endpoint = await listen(engine);
+    for (let i = 0; i < 2; i++) await expect((await run(endpoint, REQUEST_ID, "source", "java")).json()).resolves.toMatchObject({failureReason: "timeout", exitCode: 124, stderr: "Compilation deadline exceeded"});
+    expect(engine.run.mock.calls).toHaveLength(1);
+  });
   it("acknowledges cancellation only after engine cleanup, and never restarts that ID", async () => {
     let stopped = false;
     let finishCleanup: () => void = () => undefined;

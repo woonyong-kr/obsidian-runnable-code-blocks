@@ -7,8 +7,9 @@ let bundle;
 async function runtime() {
   bundle ??= Promise.all([
     esbuild.build({ entryPoints: [fileURLToPath(new URL('../src/preview-worker/frame.ts', import.meta.url))], bundle: true, format: 'iife', globalName: '__RCB_PREVIEW__', minify: true, platform: 'browser', target: 'es2022', write: false }),
-    readFile(require.resolve('@ampproject/worker-dom/dist/worker/worker.js'), 'utf8')
-  ]).then(([main, worker]) => ({ main: main.outputFiles[0].text, worker: worker.replace(/^\/\/# sourceMappingURL=.*$/gm, '') }));
+    readFile(require.resolve('@ampproject/worker-dom/dist/worker/worker.js'), 'utf8'),
+    esbuild.build({ entryPoints: [fileURLToPath(new URL('../src/preview-worker/canvas.ts', import.meta.url))], bundle: true, format: 'iife', minify: true, platform: 'browser', target: 'es2022', write: false })
+  ]).then(([main, worker, canvas]) => ({ main: main.outputFiles[0].text, worker: worker.replace(/^\/\/# sourceMappingURL=.*$/gm, ''), canvas: canvas.outputFiles[0].text }));
   return await bundle;
 }
 export function previewWorkerPlugin() {

@@ -203,6 +203,7 @@ async function execute(engine: ExecutionEngine, payload: RunPayload, signal: Abo
       body: {
         durationMs: result.durationMs,
         exitCode: result.exitCode,
+        ...(result.failureReason === undefined ? {} : {failureReason: result.failureReason}),
         language: payload.language,
         provider: `Woon personal compiler · ${payload.language}`,
         stderr: result.stderr,
