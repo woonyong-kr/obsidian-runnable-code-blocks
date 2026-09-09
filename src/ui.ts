@@ -79,6 +79,7 @@ export function mountRunnableBlock(
   spec: RunnableBlockSpec,
   options: { onEditSource?: () => void } = {}
 ): MountedRunnableBlock {
+  const timerWindow = host.ownerDocument.defaultView ?? window;
   const editorInitialCode = withTrailingBlankLines(spec.code);
   host.replaceChildren();
   const root = element(host, "section", "rcb");
@@ -151,7 +152,7 @@ export function mountRunnableBlock(
   let executionController: AbortController | null = null;
 
   const setDirty = (dirty: boolean) => {
-    window.clearTimeout(copyFeedbackTimer);
+    timerWindow.clearTimeout(copyFeedbackTimer);
     resetButton.hidden = !dirty;
     editingHint.hidden = !dirty;
     setButtonIcon(copyButton, "Copy code", COPY_ICON);
@@ -192,14 +193,14 @@ export function mountRunnableBlock(
   };
 
   const releaseRetryCooldown = () => {
-    window.clearTimeout(retryTimer);
+    timerWindow.clearTimeout(retryTimer);
     retryTimer = undefined;
     if (lifecycle.disposed) return;
     const remaining = retryAt - performance.now();
     if (remaining > 0) {
       // Timers can wake before a coarse clock reaches the deadline. Keep the
       // remaining wait scheduled instead of leaving the controls disabled.
-      retryTimer = window.setTimeout(releaseRetryCooldown, Math.min(2_147_483_647, Math.max(1, Math.ceil(remaining))));
+      retryTimer = timerWindow.setTimeout(releaseRetryCooldown, Math.min(2_147_483_647, Math.max(1, Math.ceil(remaining))));
       return;
     }
     applyAvailabilityState();
@@ -385,14 +386,14 @@ export function mountRunnableBlock(
     (value) => setDirty(value !== editorInitialCode)
   );
   copyButton.addEventListener("click", () => {
-    window.clearTimeout(copyFeedbackTimer);
+    timerWindow.clearTimeout(copyFeedbackTimer);
     setButtonIcon(copyButton, "Copy code", COPY_ICON);
     copyButton.disabled = true;
-    void Promise.resolve().then(() => navigator.clipboard.writeText(withoutTrailingDisplayLines(editor.getValue()))).then(() => {
+    void Promise.resolve().then(() => (host.ownerDocument.defaultView ?? window).navigator.clipboard.writeText(withoutTrailingDisplayLines(editor.getValue()))).then(() => {
       if (!lifecycle.disposed) {
-        window.clearTimeout(copyFeedbackTimer);
+        timerWindow.clearTimeout(copyFeedbackTimer);
         setButtonIcon(copyButton, "Copied", "M4 10l4 4 8-8");
-        copyFeedbackTimer = window.setTimeout(() => {
+        copyFeedbackTimer = timerWindow.setTimeout(() => {
           if (!lifecycle.disposed) setButtonIcon(copyButton, "Copy code", COPY_ICON);
         }, 1500);
       }
@@ -433,8 +434,8 @@ export function mountRunnableBlock(
       if (lifecycle.disposed) return;
       lifecycle.disposed = true;
       executionId += 1;
-      window.clearTimeout(retryTimer);
-      window.clearTimeout(copyFeedbackTimer);
+      timerWindow.clearTimeout(retryTimer);
+      timerWindow.clearTimeout(copyFeedbackTimer);
       executionController?.abort();
       disposePreview();
       editor.destroy();
@@ -463,6 +464,7 @@ function renderPreview(
   preview: NonNullable<RunResult["preview"]>,
   onMessage: (message: PreviewMessage) => void
 ): PreviewHandle {
+  const ownerWindow = host.ownerDocument.defaultView ?? window;
   host.replaceChildren();
   const frame = appendElement(host, "iframe");
   const token = crypto.randomUUID();
@@ -480,12 +482,12 @@ function renderPreview(
   let readySettled = false;
   let disposing = false;
   let removalTimer: number | undefined;
-  const remove = () => { window.clearTimeout(removalTimer); window.removeEventListener("message", receiveMessage); frame.remove(); };
+  const remove = () => { ownerWindow.clearTimeout(removalTimer); ownerWindow.removeEventListener("message", receiveMessage); frame.remove(); };
   const ready = new Promise<void>((resolve, reject) => {
     rejectReady = reject;
     resolveReady = resolve;
   });
-  const readyTimeout = window.setTimeout(() => {
+  const readyTimeout = ownerWindow.setTimeout(() => {
     if (readySettled) return;
     readySettled = true;
     rejectReady(new Error("Interactive preview did not become ready within 5 seconds."));
@@ -514,7 +516,7 @@ function renderPreview(
     ) {
       if (!readySettled) {
         readySettled = true;
-        window.clearTimeout(readyTimeout);
+        ownerWindow.clearTimeout(readyTimeout);
         resolveReady();
       }
       return;
@@ -532,11 +534,11 @@ function renderPreview(
     if (typeof data.message !== "string" || !isPreviewMessageType(data.type)) return;
     onMessage({ message: data.message.slice(0, 16_000), type: data.type });
     if (data.type === "error" && !readySettled) {
-      readySettled = true; window.clearTimeout(readyTimeout); rejectReady(new Error(data.message));
+      readySettled = true; ownerWindow.clearTimeout(readyTimeout); rejectReady(new Error(data.message));
     }
   };
-  window.addEventListener("message", receiveMessage);
-  frame.srcdoc = previewContainerDocument(token);
+  ownerWindow.addEventListener("message", receiveMessage);
+  frame.srcdoc = previewContainerDocument(token, window.origin);
   host.hidden = false;
   return {
     dispose: () => {
@@ -544,19 +546,20 @@ function renderPreview(
       disposing = true;
       if (!readySettled) {
         readySettled = true;
-        window.clearTimeout(readyTimeout);
+        ownerWindow.clearTimeout(readyTimeout);
         rejectReady(new Error("Interactive preview was disposed before it became ready."));
       }
       frame.hidden = true;
       frame.contentWindow?.postMessage({ sender: "runnable-code-blocks-stop", token }, "*");
-      removalTimer = window.setTimeout(remove, 500);
+      removalTimer = ownerWindow.setTimeout(remove, 500);
     },
     ready
   };
 }
 
-function previewContainerDocument(token: string): string {
+function previewContainerDocument(token: string, controllerOrigin: string): string {
   const serializedToken = JSON.stringify(token);
+  const serializedControllerOrigin = JSON.stringify(controllerOrigin);
   const entryLimit = String(OUTPUT_LIMITS.entries);
   const characterLimit = String(OUTPUT_LIMITS.characters);
   const truncationMarker = JSON.stringify(OUTPUT_LIMITS.marker);
@@ -566,6 +569,8 @@ function previewContainerDocument(token: string): string {
 </head><body><script>
 (() => {
   const token = ${serializedToken};
+  const expectedControllerOrigin = ${serializedControllerOrigin};
+  let controllerSource = null;
   const entryLimit = ${entryLimit};
   const characterLimit = ${characterLimit};
   const truncationMarker = ${truncationMarker};
@@ -581,13 +586,19 @@ function previewContainerDocument(token: string): string {
   let relayClosed = false;
   addEventListener("message", (event) => {
     const data = event.data;
-    if (event.source === parent && data?.sender === "runnable-code-blocks-host" && data.token === token) {
+    // A module loaded in Obsidian's main window can control a frame in a popout.
+    // postMessage identifies that module's window, not the frame's DOM parent.
+    if (data?.sender === "runnable-code-blocks-host" && data.token === token) {
       if (
-        preview !== null
+        controllerSource !== null
+        || event.source === null
+        || event.origin !== expectedControllerOrigin
+        || preview !== null
         || typeof data.html !== "string"
         || data.html.length > 2000000
         || (data.scripts !== "blocked" && data.scripts !== "isolated")
       ) return;
+      controllerSource = event.source;
       preview = document.createElement("iframe");
       preview.id = "preview";
       preview.title = data.scripts === "isolated" ? "Interactive code result" : "Code result";
@@ -604,7 +615,9 @@ function previewContainerDocument(token: string): string {
       document.body.replaceChildren(preview);
       return;
     }
-    if (event.source === parent && data?.sender === "runnable-code-blocks-stop" && data.token === token) {
+    if (controllerSource !== null && event.source === controllerSource
+      && event.origin === expectedControllerOrigin
+      && data?.sender === "runnable-code-blocks-stop" && data.token === token) {
       preview?.contentWindow.postMessage({sender: "runnable-code-blocks-stop"}, "*"); return;
     }
     if (preview === null || event.source !== preview.contentWindow || event.origin !== "null") return;

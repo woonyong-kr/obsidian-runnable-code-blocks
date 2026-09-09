@@ -4,6 +4,8 @@ This optional desktop companion executes selected `run-<language>` blocks in dis
 
 It is not installed by the Obsidian Community Plugin. Docker Desktop, Colima with Docker CLI compatibility, or another local Docker engine must already be running.
 
+Download the standalone `.mjs` from the [companion release](https://github.com/woonyong-kr/obsidian-runnable-code-blocks/releases/tag/companion-0.7.3). The plugin's latest release contains only Obsidian installation files. Existing 0.7.2 companion installations use the same protocol and do not need a process or token reset when the plugin updates.
+
 ```bash
 node runnable-code-blocks-local-runner.mjs list
 node runnable-code-blocks-local-runner.mjs prepare kotlin java cpp

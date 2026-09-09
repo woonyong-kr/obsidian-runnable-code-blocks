@@ -46,9 +46,8 @@ jobs:
             main.js
             manifest.json
             styles.css
-            THIRD_PARTY_NOTICES.md
             local-runner/dist/runnable-code-blocks-local-runner.mjs
-      - name: Create draft release
+      - name: Create plugin draft release
         env:
           GH_TOKEN: ${{ github.token }}
           REQUESTED_VERSION: ${{ inputs.version }}
@@ -57,4 +56,16 @@ jobs:
           --draft
           --generate-notes
           --target "$GITHUB_SHA"
-          main.js manifest.json styles.css THIRD_PARTY_NOTICES.md local-runner/dist/runnable-code-blocks-local-runner.mjs
+          main.js manifest.json styles.css
+      - name: Create separate companion draft release
+        env:
+          GH_TOKEN: ${{ github.token }}
+          REQUESTED_VERSION: ${{ inputs.version }}
+        run: >-
+          gh release create "companion-$REQUESTED_VERSION"
+          --draft
+          --latest=false
+          --title "Optional local companion for $REQUESTED_VERSION"
+          --notes "Standalone Node.js 22 program. This is not an Obsidian plugin installation. Existing compatible companions and pairing tokens do not need to be replaced. See local-runner/README.md in the tagged source for setup."
+          --target "$GITHUB_SHA"
+          local-runner/dist/runnable-code-blocks-local-runner.mjs LICENSE

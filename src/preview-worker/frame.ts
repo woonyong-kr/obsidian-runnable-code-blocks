@@ -84,14 +84,13 @@ export function start(payload: Payload): void {
     if (stopped) return;
     for (const [id, bitmap] of canvasFrames) {
       const canvas = root.querySelector(`canvas.${id}`);
+      // This constructor belongs to the isolated frame that owns these nodes.
       if (!(canvas instanceof HTMLCanvasElement)) continue;
-      if (canvas instanceof HTMLCanvasElement) {
-        if (canvas.width !== bitmap.width) canvas.width = bitmap.width;
-        if (canvas.height !== bitmap.height) canvas.height = bitmap.height;
-        const context = canvas.getContext("2d");
-        context?.clearRect(0, 0, canvas.width, canvas.height);
-        context?.drawImage(bitmap, 0, 0);
-      }
+      if (canvas.width !== bitmap.width) canvas.width = bitmap.width;
+      if (canvas.height !== bitmap.height) canvas.height = bitmap.height;
+      const context = canvas.getContext("2d");
+      context?.clearRect(0, 0, canvas.width, canvas.height);
+      context?.drawImage(bitmap, 0, 0);
       bitmap.close();
       canvasFrames.delete(id);
       worker?.postMessage({rcb: "canvas-ack", id});

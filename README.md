@@ -188,7 +188,7 @@ Older `kotlinCompilerPath` or `javaPath` settings migrate to local-only executio
 
 ## Optional local runner
 
-The local runner is useful when a public provider is unavailable or source should remain on the desktop. It requires Node.js 22 and a running Docker-compatible engine. Download `runnable-code-blocks-local-runner.mjs` from the matching GitHub release, then prepare only the languages you need:
+The local runner is useful when a public provider is unavailable or source should remain on the desktop. It requires Node.js 22 and a running Docker-compatible engine. Download `runnable-code-blocks-local-runner.mjs` from the [separate companion release](https://github.com/woonyong-kr/obsidian-runnable-code-blocks/releases/tag/companion-0.7.3), then prepare only the languages you need:
 
 ```bash
 node runnable-code-blocks-local-runner.mjs list
@@ -198,6 +198,8 @@ node runnable-code-blocks-local-runner.mjs start
 
 Copy the printed token into the plugin settings and enable **Local runner**. The service binds only to `127.0.0.1`; it is not a public backend and must never be exposed through port forwarding or a reverse proxy. Full setup, isolation controls, image references, and troubleshooting are documented in [Local runner](local-runner/README.md).
 
+The plugin release contains only the three Obsidian installation files. The companion remains optional, uses the existing HTTP protocol, and is never installed or started by the plugin. An already paired 0.7.2 companion keeps working; updating the plugin does not require replacing its process, settings, or token.
+
 ## Troubleshooting
 
 - **Run is unavailable:** hover or focus the status text to see which provider preflight failed. Public providers can be temporarily unavailable.
@@ -205,6 +207,22 @@ Copy the printed token into the plugin settings and enable **Local runner**. The
 - **A React import is rejected:** `run-react` deliberately includes only React and ReactDOM. Keep the example self-contained instead of importing arbitrary npm or relative modules.
 - **Edits disappeared after Reset or reopening the note:** this is intentional. Change the Markdown source when you want to keep an example.
 - **A program failed but no fallback ran:** compile errors, runtime failures, and unknown remote outcomes are completed attempts, so the plugin avoids executing the same code twice.
+- **An interactive preview times out only in a popout:** update to 0.7.3 or later. Earlier versions listened for preview messages in the main window even when the block was in another window.
+
+## Community scanner findings
+
+The [Community plugin page](https://community.obsidian.md/plugins/runnable-code-blocks) combines source analysis with release checks. A source finding is not proof that the installed plugin uses that API.
+
+| Finding | Runtime boundary and handling |
+| --- | --- |
+| Node imports and bare timers in `local-runner/src` | These belong to the separately started Node.js companion. They are not imported by `main.js`; the companion artifact has its own release. Source scanners may still report them because both products share this repository. |
+| Extra release files | Plugin releases from 0.7.3 contain only `main.js`, `manifest.json`, and `styles.css`. Third-party notices are embedded in `main.js`; optional companion files are distributed separately. |
+| CSS `:has()` | Replaced with a lifecycle-managed host class and `:focus-within`, retaining hover, keyboard, and touch access to source editing. |
+| Dynamic script creation in bundled ReactDOM | ReactDOM includes resource APIs. User React code runs in a terminable Worker; the DOM sanitizer rejects script elements and the opaque preview's CSP blocks external scripts and network access. The browser suite exercises these paths. |
+| `document.createElement` and canvas type checks | These run inside isolated preview documents or the Worker DOM realm, where Obsidian's main-window DOM extensions are unavailable. Their native constructors refer to that isolated realm. |
+| Clipboard access | Only the explicit Copy button writes the edited code to its window's clipboard. The plugin never reads clipboard contents. |
+
+Unavailable scanner checks and normal runtime disclosures are not reported as passed checks. Please include the individual finding and affected file when reporting a scanner result.
 
 ## Static website integration
 
@@ -234,7 +252,7 @@ When a public provider changes, its adapter can be repaired and released without
 
 ## Installation and compatibility
 
-Community listing is pending. Install from the GitHub release as described below. Version 0.7.1 supports Obsidian 1.13.0 or later on desktop and mobile. Local container execution is desktop-only and opt-in; all other adapters keep their existing platform support.
+Community listing is pending. Install from the GitHub release as described below. Version 0.7.3 supports Obsidian 1.13.0 or later on desktop and mobile. Local container execution is desktop-only and opt-in; all other adapters keep their existing platform support.
 
 For a manual release install, download `main.js`, `manifest.json`, and `styles.css` from the [latest release](https://github.com/woonyong-kr/obsidian-runnable-code-blocks/releases/latest) into `.obsidian/plugins/runnable-code-blocks/`, then reload Obsidian.
 

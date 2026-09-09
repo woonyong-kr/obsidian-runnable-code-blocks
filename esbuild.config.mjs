@@ -1,10 +1,11 @@
 import esbuild from "esbuild";
-import { copyFile, mkdir, rm } from "node:fs/promises";
+import { copyFile, mkdir, readFile, rm } from "node:fs/promises";
 import { reactRuntimePlugin } from "./scripts/react-runtime-plugin.mjs";
 
 import { previewWorkerPlugin } from "./scripts/preview-worker-plugin.mjs";
 
 const production = process.argv[2] === "production";
+const thirdPartyNotices = await readFile("THIRD_PARTY_NOTICES.md", "utf8");
 const shared = {
   bundle: true,
   logLevel: "info",
@@ -22,6 +23,7 @@ await esbuild.build({
   format: "cjs",
   outfile: "main.js",
   platform: "node",
+  banner: { js: `/*!\n${thirdPartyNotices.replaceAll("*/", "* /")}\n*/` },
 });
 
 await rm("dist-site", { recursive: true, force: true });

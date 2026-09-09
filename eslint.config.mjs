@@ -19,6 +19,8 @@ export default tseslint.config(
   {
     files: ["tests/**/*.ts"],
     rules: {
+      // Test harnesses execute in Node and are never included in plugin assets.
+      "obsidianmd/no-nodejs-modules": "off",
       "@microsoft/sdl/no-inner-html": "off",
       "@typescript-eslint/no-unsafe-assignment": "off",
       "@typescript-eslint/no-unsafe-argument": "off",

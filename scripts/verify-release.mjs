@@ -109,6 +109,11 @@ for (const file of ["main.js", "dist-site/main.js"]) {
   if (/_0x[0-9a-f]+/iu.test(bundle)) errors.push(`${file} contains an obfuscation-like hexadecimal identifier`);
 }
 const styles = await readFile("styles.css", "utf8");
+const pluginBundle = await readFile("main.js", "utf8");
+const thirdPartyNotices = await readFile("THIRD_PARTY_NOTICES.md", "utf8");
+if (!pluginBundle.includes(thirdPartyNotices.replaceAll("*/", "* /"))) {
+  errors.push("main.js must carry its third-party notices without an extra plugin release asset");
+}
 if (/!important/u.test(styles)) errors.push("styles.css uses !important");
 if (/\bclip-path\s*:/u.test(styles)) errors.push("styles.css uses unsupported clip-path");
 if (!styles.includes(".cm-editor.cm-focused > .cm-scroller")) {

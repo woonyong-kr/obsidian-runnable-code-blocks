@@ -75,6 +75,9 @@ copyFileSync(
 // Record provenance only after every capture and GIF assembly succeeds.
 const mediaPath = join(pluginRoot, "docs/release-media.json");
 const media = JSON.parse(readFileSync(mediaPath, "utf8"));
+const capturedVersion = JSON.parse(readFileSync(join(pluginRoot, "manifest.json"), "utf8")).version;
+media.version = capturedVersion;
+media.capturedVersion = capturedVersion;
 media.capturedAt = new Date().toISOString().slice(0, 10);
 for (const asset of media.assets) {
   asset.sha256 = createHash("sha256").update(readFileSync(join(pluginRoot, asset.path))).digest("hex");

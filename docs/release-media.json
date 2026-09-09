@@ -1,27 +1,27 @@
 {
-  "version": "0.7.2",
+  "version": "0.7.3",
   "capturedWith": "Static web adapter rendered in Chromium",
-  "capturedAt": "2026-09-08",
+  "capturedAt": "2026-09-09",
   "publicSafeSample": true,
   "assets": [
     {
       "path": "docs/assets/runnable-code-blocks-demo.gif",
       "width": 1600,
       "height": 900,
-      "sha256": "6d73a1d0a1f4b0a94c53262fbe673436c7d6c64d516057ba70ceb5caa4bef6f3"
+      "sha256": "1eea5100911d1ee579578a18517e8d76213c7740979c4fe673ae9a89851f932b"
     },
     {
       "path": "docs/assets/runnable-code-blocks-preview.png",
       "width": 1600,
       "height": 900,
-      "sha256": "0cf8320edab8f78a1763c0fc1fc50956d341d27a35f16c786aac3ad5271d693f"
+      "sha256": "8156639b71bd7c03d26b1a7eb159d2210b637ff11c16ca21d2dc82b1fee25b19"
     },
     {
       "path": "docs/assets/runnable-web-preview.png",
       "width": 1600,
       "height": 900,
-      "sha256": "6f9c4f4d6caf0b7b6226e70398ba423106aa9866a5a1ca154211665ae576c6e2"
+      "sha256": "08d0871045327957b707488183bfcb42fad30fbfc1eec4092d5c78859ebd46d8"
     }
   ],
-  "capturedVersion": "0.7.0"
+  "capturedVersion": "0.7.3"
 }

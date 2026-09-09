@@ -1,6 +1,48 @@
 import { expect, test } from "@playwright/test";
 import { OUTPUT_LIMITS } from "../../src/output-buffer";
 
+test("runs, copies and stops a preview in the block's popout window", async ({ page }) => {
+  await page.goto("/");
+  await expect(page.locator("[data-featured-test-case] .rcb")).toHaveAttribute("data-state", "idle");
+  const opened = page.waitForEvent("popup");
+  await page.evaluate(() => {
+    const popup = window.open("about:blank", "runnable-popout", "width=900,height=700");
+    const lesson = document.querySelector("[data-featured-test-case]");
+    if (!popup || !lesson) throw new Error("Popout fixture could not open");
+    for (const node of document.head.querySelectorAll("style,link[rel=stylesheet]")) {
+      const copy = node.cloneNode(true);
+      if (node instanceof HTMLLinkElement && copy instanceof HTMLLinkElement) copy.href = node.href;
+      popup.document.head.append(copy);
+    }
+    popup.document.body.className = document.body.className;
+    popup.document.body.append(lesson);
+    Object.defineProperty(popup.navigator, "clipboard", {
+      configurable: true,
+      value: { writeText: (code: string) => {
+        popup.document.body.dataset.copiedCode = code;
+        return Promise.resolve();
+      } }
+    });
+  });
+  const popup = await opened;
+  const lesson = popup.locator("[data-featured-test-case]");
+  await lesson.getByRole("button", { name: "Copy code", exact: true }).click();
+  await expect(lesson.getByRole("button", { name: "Copied", exact: true })).toBeVisible();
+  await expect(popup.locator("body")).toHaveAttribute("data-copied-code", /useState/u);
+  await expect(lesson.getByRole("button", { name: "Copy code", exact: true })).toBeVisible();
+  await lesson.getByRole("button", { name: "Run code", exact: true }).click();
+  await expect(lesson.locator(".rcb__console-meta")).toHaveText("Preview ready");
+  const preview = lesson.locator(".rcb__preview-frame").contentFrame().locator("#preview").contentFrame();
+  await preview.getByRole("button").click();
+  await expect(preview.getByRole("button")).toHaveText("Clicked 1 times");
+  await lesson.getByRole("button", { name: "Stop", exact: true }).click();
+  await expect(lesson.locator(".rcb")).toHaveAttribute("data-state", "cancelled");
+  await expect(lesson.locator(".rcb__preview-frame")).toHaveCount(0);
+  await lesson.getByRole("button", { name: "Run code", exact: true }).click();
+  await expect(lesson.locator(".rcb__console-meta")).toHaveText("Preview ready");
+  await popup.close();
+});
+
 test("edits, resets, runs, and interacts with the React example", async ({ page }) => {
   await page.goto("/");
   const lesson = page.locator("[data-featured-test-case]");
@@ -110,7 +152,7 @@ test("keeps Live Preview hover from adding a second frame or moving the runner",
     const runner = element.querySelector(".rcb");
     if (!runner) throw new Error("Runner is missing");
     const host = document.createElement("div");
-    host.className = "cm-embed-block";
+    host.className = "cm-embed-block rcb-embed";
     const content = document.createElement("div");
     runner.before(host);
     host.append(content);

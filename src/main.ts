@@ -14,6 +14,7 @@ import { mountRunnableBlock, type MountedRunnableBlock } from "./ui";
 
 class RunnableRenderChild extends MarkdownRenderChild {
   #mounted: MountedRunnableBlock | null = null;
+  #embed: Element | null = null;
   readonly #onUnload: (child: RunnableRenderChild) => void;
 
   constructor(containerEl: HTMLElement, onUnload: (child: RunnableRenderChild) => void) {
@@ -28,11 +29,15 @@ class RunnableRenderChild extends MarkdownRenderChild {
     this.#mounted = mountRunnableBlock(this.containerEl, { code: source, language, runner }, embed ? {
       onEditSource: () => embed.querySelector<HTMLElement>(":scope > .embed-actions .edit-block-button")?.click()
     } : {});
+    this.#embed = embed;
+    embed?.classList.add("rcb-embed");
   }
 
   override onunload(): void {
     this.#mounted?.dispose();
     this.#mounted = null;
+    if (!this.#embed?.querySelector(".rcb__button--source")) this.#embed?.classList.remove("rcb-embed");
+    this.#embed = null;
     this.#onUnload(this);
   }
 

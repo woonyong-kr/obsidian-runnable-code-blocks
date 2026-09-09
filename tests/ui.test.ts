@@ -1,4 +1,5 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
+import { runInNewContext } from "node:vm";
 import type { CodeRunner, RunContext, RunResult } from "../src/contracts";
 import { mountRunnableBlock } from "../src/ui";
 import { ProviderUnavailableError } from "../src/runners/provider-errors";
@@ -35,6 +36,63 @@ afterEach(() => {
 });
 
 describe("runnable block UI", () => {
+  it("binds the preview controller once using origin and token, then rejects other senders", async () => {
+    const host = document.body.appendChild(document.createElement("div"));
+    const mounted = mountRunnableBlock(host, {
+      code: "sample", language: "html",
+      runner: createRunner({ run: async () => ({
+        durationMs: 0, exitCode: 0, stdout: "", stderr: "",
+        preview: { kind: "html", html: "<p>sample</p>", scripts: "blocked" }
+      }) })
+    });
+    try {
+      await vi.waitFor(() => expect(host.querySelector<HTMLButtonElement>(".rcb__button--run")?.disabled).toBe(false));
+      host.querySelector<HTMLButtonElement>(".rcb__button--run")?.click();
+      await vi.waitFor(() => expect(host.querySelector(".rcb__preview-frame")).not.toBeNull());
+      const source = host.querySelector<HTMLIFrameElement>(".rcb__preview-frame")?.srcdoc ?? "";
+      const token = JSON.parse(source.match(/const token = ("[^"]+");/u)?.[1] ?? "null") as string;
+      const script = source.match(/<script>([\s\S]*)<\/script>/u)?.[1];
+      expect(script).toBeTruthy();
+      const parent = { postMessage: vi.fn() };
+      const controller = {};
+      const other = {};
+      const child = { postMessage: vi.fn() };
+      const createElement = vi.fn(() => ({
+        setAttribute: vi.fn(), addEventListener: vi.fn(), contentWindow: child, style: {}
+      }));
+      type Envelope = { source: object | null; origin: string; data: Record<string, unknown> };
+      let receive: (event: Envelope) => void = () => { throw new Error("Container did not register its listener"); };
+      runInNewContext(script ?? "", {
+        parent,
+        document: { createElement, body: { replaceChildren: vi.fn() } },
+        addEventListener: (_type: string, callback: typeof receive) => { receive = callback; }
+      });
+      const init = { sender: "runnable-code-blocks-host", token, html: "<p>sample</p>", scripts: "blocked" };
+      receive({ source: controller, origin: "https://wrong.example", data: init });
+      receive({ source: controller, origin: window.origin, data: { ...init, token: "wrong" } });
+      receive({ source: null, origin: window.origin, data: init });
+      receive({ source: controller, origin: window.origin, data: { ...init, scripts: "unrestricted" } });
+      expect(createElement).not.toHaveBeenCalled();
+      // The valid controller can differ from the frame's DOM parent in a popout.
+      receive({ source: controller, origin: window.origin, data: init });
+      receive({ source: other, origin: window.origin, data: init });
+      expect(createElement).toHaveBeenCalledOnce();
+      const stop = { sender: "runnable-code-blocks-stop", token };
+      receive({ source: other, origin: window.origin, data: stop });
+      receive({ source: controller, origin: "https://wrong.example", data: stop });
+      receive({ source: controller, origin: window.origin, data: { ...stop, token: "wrong" } });
+      expect(child.postMessage).not.toHaveBeenCalled();
+      receive({ source: controller, origin: window.origin, data: stop });
+      expect(child.postMessage).toHaveBeenCalledOnce();
+      const log = { sender: "runnable-code-blocks-preview", type: "log", message: "sample" };
+      receive({ source: other, origin: "null", data: log });
+      receive({ source: child, origin: window.origin, data: log });
+      expect(parent.postMessage).toHaveBeenCalledOnce(); // Initial ready only.
+      receive({ source: child, origin: "null", data: log });
+      expect(parent.postMessage).toHaveBeenCalledTimes(2);
+    } finally { mounted.dispose(); }
+  });
+
   it.each(["early timer", "wall clock adjustment"] as const)("releases a rate-limit cooldown after %s", async (clockEvent) => {
     const host = document.body.appendChild(document.createElement("div"));
     const run = vi.fn(async () => { throw new ProviderUnavailableError("Busy", "not-started", { retryAfterMs: 1000 }); });

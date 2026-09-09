@@ -68,6 +68,7 @@ describe("Obsidian plugin boundary", () => {
     await vi.waitFor(() => {
       expect(element.querySelector(".rcb__button--run")).not.toBeNull();
     });
+    expect(embed.classList.contains("rcb-embed")).toBe(true);
 
     // Obsidian appends its edit control after the postprocessor mounts.
     const hostActions = embed.appendChild(document.createElement("div"));
@@ -89,5 +90,6 @@ describe("Obsidian plugin boundary", () => {
     renderChild.current?.onunload();
     await plugin.saveSettings();
     expect(element.querySelector(".rcb")).toBeNull();
+    expect(embed.classList.contains("rcb-embed")).toBe(false);
   });
 });

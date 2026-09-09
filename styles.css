@@ -27,7 +27,7 @@
 }
 
 /* Live Preview supplies its own edit-source action around a rendered fence. */
-.markdown-source-view.mod-cm6 .cm-embed-block:has(> div > .rcb) {
+.markdown-source-view.mod-cm6 .cm-embed-block.rcb-embed {
   --embed-block-shadow-hover: none;
   margin-block: 1rem;
 }
@@ -37,7 +37,7 @@
 }
 
 /* The accessible toolbar action delegates to Obsidian's existing edit handler. */
-.cm-embed-block:has(> div > .rcb .rcb__button--source) > .embed-actions {
+.cm-embed-block.rcb-embed > .embed-actions {
   display: none;
 }
 
@@ -56,7 +56,7 @@
 }
 
 .rcb:hover .rcb__button--source,
-.rcb:has(:focus-visible) .rcb__button--source {
+.rcb:focus-within .rcb__button--source {
   opacity: 1;
   pointer-events: auto;
 }
