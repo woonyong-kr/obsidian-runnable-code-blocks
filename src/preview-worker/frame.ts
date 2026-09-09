@@ -37,9 +37,9 @@ export function start(payload: Payload): void {
   };
   const watchdog = window.setInterval(() => {
     const now = performance.now();
-    // A suspended host cannot judge Worker responsiveness from elapsed wall time.
-    // Challenge it again on resume; keep the same deadline once ticks are running.
-    if (now - lastWatchdogTick > 1_000) {
+    // Hidden windows can have their timers suspended. Visible slow code must not
+    // receive this grace, or it could delay termination of a runaway Worker.
+    if (document.hidden && now - lastWatchdogTick > 1_000) {
       challenge = undefined;
       lastHeartbeat = now;
     }
@@ -52,6 +52,13 @@ export function start(payload: Payload): void {
       worker.postMessage({ rcb: "ping", challenge });
     }
   }, 250);
+  document.addEventListener("visibilitychange", () => {
+    if (!document.hidden) {
+      challenge = undefined;
+      lastHeartbeat = performance.now();
+      lastWatchdogTick = lastHeartbeat;
+    }
+  });
   addEventListener("message", (event: MessageEvent<unknown>) => {
     if (event.source === parent && typeof event.data === "object" && event.data !== null && (event.data as {sender?: unknown}).sender === "runnable-code-blocks-stop") {
       if (stopped) parent.postMessage({ sender: "runnable-code-blocks-preview", type: "stopped" }, "*");
