@@ -29,6 +29,23 @@ describe("normalizeSettings", () => {
         remoteExecutionEnabled: true
       });
   });
+
+  it.each(["kotlinCompilerPath", "javaPath"])("keeps legacy %s users local-only until the companion is paired", (key) => {
+    expect(normalizeSettings({ [key]: "/local/compiler" })).toEqual({
+      ...DEFAULT_SETTINGS,
+      localExecutionEnabled: true,
+      remoteExecutionEnabled: false
+    });
+  });
+
+  it("preserves explicit execution choices when legacy paths remain", () => {
+    expect(normalizeSettings({ kotlinCompilerPath: "/local/compiler", localExecutionEnabled: false,
+      remoteExecutionEnabled: true, executionOrder: "remote-first" })).toEqual({
+      ...DEFAULT_SETTINGS,
+      executionOrder: "remote-first"
+    });
+    expect(normalizeSettings({ kotlinCompilerPath: " ", javaPath: null })).toEqual(DEFAULT_SETTINGS);
+  });
 });
 
 describe("RunnableCodeBlocksSettingTab", () => {

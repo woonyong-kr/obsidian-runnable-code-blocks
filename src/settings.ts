@@ -21,6 +21,8 @@ export const DEFAULT_SETTINGS: RunnableCodeBlocksSettings = {
 
 export function normalizeSettings(value: unknown): RunnableCodeBlocksSettings {
   const stored = isRecord(value) ? value : {};
+  const legacyLocalCompiler = [stored.kotlinCompilerPath, stored.javaPath]
+    .some((path) => typeof path === "string" && path.trim().length > 0);
   return {
     executionOrder: stored.executionOrder === "browser-first" || stored.executionOrder === "private-first"
       ? "private-first"
@@ -29,11 +31,11 @@ export function normalizeSettings(value: unknown): RunnableCodeBlocksSettings {
         : DEFAULT_SETTINGS.executionOrder,
     localExecutionEnabled: typeof stored.localExecutionEnabled === "boolean"
       ? stored.localExecutionEnabled
-      : DEFAULT_SETTINGS.localExecutionEnabled,
+      : legacyLocalCompiler || DEFAULT_SETTINGS.localExecutionEnabled,
     localRunnerEndpoint: normalizeLocalEndpoint(stored.localRunnerEndpoint),
     remoteExecutionEnabled: typeof stored.remoteExecutionEnabled === "boolean"
       ? stored.remoteExecutionEnabled
-      : DEFAULT_SETTINGS.remoteExecutionEnabled
+      : !legacyLocalCompiler && DEFAULT_SETTINGS.remoteExecutionEnabled
   };
 }
 

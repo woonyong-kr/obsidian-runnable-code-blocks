@@ -184,6 +184,8 @@ Open **Settings → Community plugins → Runnable Code Blocks**:
 - **Provider order** — choose Browser/local → Remote or Remote → Browser/local.
 - **Supported languages** — inspect the complete runtime map from the same catalog used by the plugin.
 
+Older `kotlinCompilerPath` or `javaPath` settings migrate to local-only execution unless you have explicitly chosen the current execution controls. Pair the local companion before running these blocks; an unavailable local runner does not enable remote submission. The plugin no longer invokes host compiler paths directly.
+
 ## Optional local runner
 
 The local runner is useful when a public provider is unavailable or source should remain on the desktop. It requires Node.js 22 and a running Docker-compatible engine. Download `runnable-code-blocks-local-runner.mjs` from the matching GitHub release, then prepare only the languages you need:

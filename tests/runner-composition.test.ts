@@ -3,6 +3,7 @@ import { resetWandboxCompilerCache } from "../src/runners/wandbox-runner";
 import { resetPersonalCompilerCapabilityCache } from "../src/runners/personal-compiler-runner";
 import { composeLanguageRunner, createRunnerRegistry } from "../src/runner-composition";
 import { SUPPORTED_LANGUAGES, supportedLanguage } from "../src/supported-languages";
+import { normalizeSettings } from "../src/settings";
 
 afterEach(() => {
   resetWandboxCompilerCache();
@@ -10,6 +11,17 @@ afterEach(() => {
 });
 
 describe("runner composition", () => {
+  it("does not upload legacy Kotlin source when the local companion is unpaired", async () => {
+    const fetch_ = vi.fn();
+    const settings = normalizeSettings({ kotlinCompilerPath: "/local/kotlinc", javaPath: "/local/java" });
+    const runner = createRunnerRegistry(() => ({ ...settings, fetch: fetch_ })).create("kotlin");
+    if (runner === null) throw new Error("Kotlin runner is not registered");
+    await expect(runner.availability()).resolves.toMatchObject({ available: false });
+    await expect(runner.run('println("migration check")')).rejects.toMatchObject({ executionState: "not-started" });
+    expect(fetch_).not.toHaveBeenCalled();
+    runner.dispose?.();
+  });
+
   it("registers every language from the declarative catalog", () => {
     const registry = createRunnerRegistry();
     expect(registry.languages()).toEqual(SUPPORTED_LANGUAGES.map(({ id }) => id).sort());
