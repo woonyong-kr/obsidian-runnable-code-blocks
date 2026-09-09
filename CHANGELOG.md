@@ -2,6 +2,8 @@
 
 ## 0.7.3
 
+- Recheck Worker responsiveness after the host resumes from suspension instead of treating a paused window as a hung Worker; keep automatic termination for unresponsive code.
+
 - Fix interactive preview startup, output, cancellation, and copy feedback in popout windows. Bind the controller once using its origin and per-preview token, then require the bound source for stop requests.
 - Replace CSS `:has()` selectors with a lifecycle-managed embed class and keyboard-compatible focus handling.
 - Publish the optional Node.js companion separately from the three Obsidian plugin assets, preserve existing companion connections, and embed third-party notices in the plugin bundle.

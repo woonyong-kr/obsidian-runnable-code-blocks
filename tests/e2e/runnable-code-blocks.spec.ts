@@ -43,6 +43,22 @@ test("runs, copies and stops a preview in the block's popout window", async ({ p
   await popup.close();
 });
 
+test("keeps a healthy preview alive after the host event loop resumes", async ({ page }) => {
+  await page.goto("/");
+  const lesson = page.locator("[data-featured-test-case]");
+  await lesson.getByRole("button", { name: "Run code", exact: true }).click();
+  await expect(lesson.locator(".rcb__console-meta")).toHaveText("Preview ready");
+  const preview = lesson.locator(".rcb__preview-frame").contentFrame().locator("#preview").contentFrame();
+  await preview.locator("body").evaluate(() => {
+    // Simulate a suspended/throttled host, while its dedicated Worker is healthy.
+    const until = performance.now() + 2300;
+    while (performance.now() < until) { /* trusted test host only */ }
+  });
+  await preview.getByRole("button").click();
+  await expect(preview.getByRole("button")).toHaveText("Clicked 1 times");
+  await expect(lesson.locator(".rcb__console-meta")).toHaveText("Preview ready");
+});
+
 test("edits, resets, runs, and interacts with the React example", async ({ page }) => {
   await page.goto("/");
   const lesson = page.locator("[data-featured-test-case]");

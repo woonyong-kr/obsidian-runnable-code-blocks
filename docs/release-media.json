@@ -8,19 +8,19 @@
       "path": "docs/assets/runnable-code-blocks-demo.gif",
       "width": 1600,
       "height": 900,
-      "sha256": "1eea5100911d1ee579578a18517e8d76213c7740979c4fe673ae9a89851f932b"
+      "sha256": "668a6f5d4c570120b37fe56a9e5f0e398d608e446487ced68a360ed376acb001"
     },
     {
       "path": "docs/assets/runnable-code-blocks-preview.png",
       "width": 1600,
       "height": 900,
-      "sha256": "8156639b71bd7c03d26b1a7eb159d2210b637ff11c16ca21d2dc82b1fee25b19"
+      "sha256": "f6b03ae2aa0fccecdaa346e82451dba5cde263d10f3befe6a7b8a56b1f33f019"
     },
     {
       "path": "docs/assets/runnable-web-preview.png",
       "width": 1600,
       "height": 900,
-      "sha256": "08d0871045327957b707488183bfcb42fad30fbfc1eec4092d5c78859ebd46d8"
+      "sha256": "68d17de8210e9b3bac9dc14a5703d9ab7ba8c268c66a77c29e585e68e523ece6"
     }
   ],
   "capturedVersion": "0.7.3"

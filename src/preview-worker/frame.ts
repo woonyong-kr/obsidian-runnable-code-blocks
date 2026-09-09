@@ -9,6 +9,7 @@ export function start(payload: Payload): void {
   let worker: Worker | undefined;
   let stopped = false;
   let lastHeartbeat = performance.now();
+  let lastWatchdogTick = lastHeartbeat;
   let challenge: string | undefined;
   let storedCharacters = 0;
   let windowStarted = performance.now();
@@ -35,10 +36,19 @@ export function start(payload: Payload): void {
     parent.postMessage({ sender: "runnable-code-blocks-preview", type: "stopped" }, "*");
   };
   const watchdog = window.setInterval(() => {
-    if (performance.now() - lastHeartbeat > 2_000) {
+    const now = performance.now();
+    // A suspended host cannot judge Worker responsiveness from elapsed wall time.
+    // Challenge it again on resume; keep the same deadline once ticks are running.
+    if (now - lastWatchdogTick > 1_000) {
+      challenge = undefined;
+      lastHeartbeat = now;
+    }
+    lastWatchdogTick = now;
+    if (challenge !== undefined && now - lastHeartbeat > 2_000) {
       stop("Preview stopped: its Worker did not respond within 2 seconds. Edit the code and run again.");
     } else if (worker && challenge === undefined) {
       challenge = crypto.randomUUID();
+      lastHeartbeat = now;
       worker.postMessage({ rcb: "ping", challenge });
     }
   }, 250);
