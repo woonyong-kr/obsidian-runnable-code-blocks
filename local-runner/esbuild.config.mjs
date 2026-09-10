@@ -4,7 +4,7 @@ import { chmod, mkdir } from "node:fs/promises";
 await mkdir("local-runner/dist", { recursive: true });
 await esbuild.build({
   bundle: true,
-  entryPoints: ["local-runner/src/cli.ts"],
+  entryPoints: ["local-runner/src/cli.mts"],
   format: "esm",
   minify: true,
   outfile: "local-runner/dist/runnable-code-blocks-local-runner.mjs",

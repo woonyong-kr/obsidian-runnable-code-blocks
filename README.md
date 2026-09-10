@@ -28,7 +28,7 @@ Plugin **0.7.3** shared UI, captured in the browser adapter on September 9, 2026
 
 ## Try it in 60 seconds
 
-1. Download **main.js**, **manifest.json**, and **styles.css** from [release 0.7.5](https://github.com/woonyong-kr/obsidian-runnable-code-blocks/releases/tag/0.7.5).
+1. Download **main.js**, **manifest.json**, and **styles.css** from [release 0.7.6](https://github.com/woonyong-kr/obsidian-runnable-code-blocks/releases/tag/0.7.6).
 2. Create `.obsidian/plugins/runnable-code-blocks/` inside your Vault and put those three files there. Reload Obsidian, then enable **Runnable Code Blocks** under **Settings → Community plugins**. Official Community listing is pending; the Community introduction page is not an in-app installation listing.
 3. Create a normal note and paste this entire fenced block:
 
@@ -125,7 +125,7 @@ Captured from version 0.7.3 in Chromium on September 9, 2026 (UTC). This shows t
 
 ## Supported languages
 
-Version **0.7.5** recognizes these 24 exact fence names. The columns show available choices, not execution order. A new Obsidian installation tries **built-in browser → enabled local companion → allowed remote provider**. Existing Remote-first settings remain respected.
+Version **0.7.6** recognizes these 24 exact fence names. The columns show available choices, not execution order. A new Obsidian installation tries **built-in browser → enabled local companion → allowed remote provider**. Existing Remote-first settings remain respected.
 
 | Fence | Built-in browser runtime | Optional desktop companion | Remote provider, when selected |
 | --- | --- | --- | --- |
@@ -244,11 +244,11 @@ The [Community plugin page](https://community.obsidian.md/plugins/runnable-code-
 
 | Finding | Runtime boundary and handling |
 | --- | --- |
-| Node imports and bare timers in `local-runner/src` | These belong to the separately started Node.js companion. They are not imported by `main.js`; the companion artifact has its own release. Source scanners may still report them because both products share this repository. |
+| Node imports and bare timers in `local-runner/src` | These belong to the separately started Node.js companion. Its explicit ESM (`.mts`) source has an independent NodeNext type check without browser globals. The plugin build rejects any companion or Node built-in import. The companion artifact has its own release. |
 | Extra release files | Plugin releases from 0.7.3 contain only `main.js`, `manifest.json`, and `styles.css`. Third-party notices are embedded in `main.js`; optional companion files are distributed separately. |
 | CSS `:has()` | Replaced with a lifecycle-managed host class and `:focus-within`, retaining hover, keyboard, and touch access to source editing. |
 | Dynamic script creation in bundled ReactDOM | From 0.7.5, the build removes ReactDOM’s script-resource implementations and replaces them with an explicit unsupported-operation error. This covers `preinit`, `preinitModule`, and rendered script elements. The reviewed upstream source hash is checked before applying the restriction. Components, hooks, events, and portals remain supported; the Worker, sanitizer, and CSP remain additional boundaries. See `scripts/restrict-react-dom.mjs` and the browser regressions. |
-| `document.createElement` and canvas type checks | These run inside isolated preview documents or the Worker DOM realm, where Obsidian's main-window DOM extensions are unavailable. Their native constructors refer to that isolated realm. |
+| `document.createElement` and canvas type checks | These run in explicit browser ESM modules with a browser-only type check. Obsidian’s main-window DOM extensions are unavailable in isolated preview documents and the Worker DOM realm; native constructors refer to that isolated realm. |
 | Clipboard access | Only the explicit Copy button writes the edited code to its window's clipboard. The plugin never reads clipboard contents. |
 
 Unavailable scanner checks and normal runtime disclosures are not reported as passed checks. Please include the individual finding and affected file when reporting a scanner result.

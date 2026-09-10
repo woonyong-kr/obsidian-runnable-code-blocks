@@ -1,7 +1,7 @@
 import { createHash, timingSafeEqual } from "node:crypto";
 import type { IncomingMessage, Server, ServerResponse } from "node:http";
-import { createAsyncHttpServer } from "./http-server";
-import { EngineNotReadyError, ExecutionCancelledError, type ExecutionEngine } from "./engine";
+import { createAsyncHttpServer } from "./http-server.mjs";
+import { EngineNotReadyError, ExecutionCancelledError, type ExecutionEngine } from "./engine.mjs";
 
 const MAX_SOURCE_BYTES = 256_000;
 const PROTOCOL_VERSION = 1;

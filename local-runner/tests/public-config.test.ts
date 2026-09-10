@@ -1,6 +1,6 @@
 // @vitest-environment node
 import { describe, expect, it } from "vitest";
-import { loadPublicRunnerConfig } from "../src/public-config";
+import { loadPublicRunnerConfig } from "../src/public-config.mjs";
 
 describe("public runner configuration", () => {
   it("requires an explicit hostname and origin allowlist", () => {

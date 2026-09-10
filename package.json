@@ -1,6 +1,6 @@
 {
   "name": "runnable-code-blocks",
-  "version": "0.7.5",
+  "version": "0.7.6",
   "description": "Run 24 Markdown code-block fences, including React JSX and TSX, in Obsidian and static websites.",
   "main": "main.js",
   "type": "module",
@@ -10,7 +10,7 @@
     "demo:capture": "node demo/scripts/capture.mjs",
     "demo:serve": "node scripts/serve-demo.mjs",
     "dev": "node esbuild.config.mjs",
-    "check": "tsc --noEmit && eslint src tests site local-runner/src local-runner/tests && node --check scripts/verify-release.mjs",
+    "check": "tsc --noEmit && tsc -p local-runner/tsconfig.json && tsc -p tsconfig.browser.json && eslint src tests site local-runner/src local-runner/tests && node --check scripts/verify-release.mjs",
     "knip": "knip",
     "test": "vitest run",
     "test:e2e": "playwright test",
@@ -22,7 +22,7 @@
   },
   "knip": {
     "entry": [
-      "local-runner/src/cli.ts",
+      "local-runner/src/cli.mts",
       "src/language-catalog.ts"
     ],
     "ignoreBinaries": [

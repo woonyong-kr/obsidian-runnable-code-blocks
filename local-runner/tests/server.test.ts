@@ -1,9 +1,9 @@
 // @vitest-environment node
 import type { AddressInfo } from "node:net";
 import { afterEach, describe, expect, it } from "vitest";
-import type { ExecutionEngine } from "../src/engine";
-import { createRunnerServer } from "../src/server";
-import { createAsyncHttpServer } from "../src/http-server";
+import type { ExecutionEngine } from "../src/engine.mjs";
+import { createRunnerServer } from "../src/server.mjs";
+import { createAsyncHttpServer } from "../src/http-server.mjs";
 
 const TOKEN = "test-token-with-32-safe-characters";
 const servers: ReturnType<typeof createRunnerServer>[] = [];

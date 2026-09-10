@@ -1,10 +1,10 @@
 #!/usr/bin/env node
-import { DockerEngine } from "./engine";
-import { loadOrCreateConfig } from "./config";
-import { CONTAINER_PROFILES } from "./profiles";
-import { loadPublicRunnerConfig } from "./public-config";
-import { createPublicRunnerServer } from "./public-server";
-import { createRunnerServer, tokenFingerprint } from "./server";
+import { DockerEngine } from "./engine.mjs";
+import { loadOrCreateConfig } from "./config.mjs";
+import { CONTAINER_PROFILES } from "./profiles.mjs";
+import { loadPublicRunnerConfig } from "./public-config.mjs";
+import { createPublicRunnerServer } from "./public-server.mjs";
+import { createRunnerServer, tokenFingerprint } from "./server.mjs";
 
 const RUNNER_VERSION = "0.1.0";
 const command = process.argv[2] ?? "start";

@@ -1,7 +1,7 @@
 // @vitest-environment node
 import { describe, expect, it } from "vitest";
-import { containerArguments, DockerEngine } from "../src/engine";
-import { CONTAINER_PROFILES } from "../src/profiles";
+import { containerArguments, DockerEngine } from "../src/engine.mjs";
+import { CONTAINER_PROFILES } from "../src/profiles.mjs";
 
 describe("container profiles", () => {
   it.runIf(process.env.RCB_DOCKER_TESTS === "1")("compiles and runs bundled Kotlin coroutines without network access", async () => {

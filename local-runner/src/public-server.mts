@@ -1,8 +1,8 @@
 import { createHash } from "node:crypto";
 import { isIP } from "node:net";
 import type { IncomingMessage, Server, ServerResponse } from "node:http";
-import { createAsyncHttpServer } from "./http-server";
-import { EngineNotReadyError, ExecutionCancelledError, type ExecutionEngine } from "./engine";
+import { createAsyncHttpServer } from "./http-server.mjs";
+import { EngineNotReadyError, ExecutionCancelledError, type ExecutionEngine } from "./engine.mjs";
 
 const MAX_SOURCE_BYTES = 32_000;
 const MAX_BODY_BYTES = 40_000;

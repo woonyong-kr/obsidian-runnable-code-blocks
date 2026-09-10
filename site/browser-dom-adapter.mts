@@ -1,4 +1,4 @@
-import type { DomAdapter } from "../src/dom";
+import type { DomAdapter } from "../src/dom-types";
 
 function ownerDocument(parent: Node): Document {
   return parent.nodeType === Node.DOCUMENT_NODE

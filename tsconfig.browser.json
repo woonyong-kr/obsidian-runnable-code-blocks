@@ -1,0 +1,13 @@
+{
+  "extends": "./tsconfig.json",
+  "compilerOptions": {
+    "types": []
+  },
+  "include": [
+    "site/browser-dom-adapter.mts",
+    "src/preview-worker/frame.mts",
+    "src/preview-worker/canvas.mts",
+    "src/virtual-react-runtime.d.ts"
+  ],
+  "exclude": []
+}

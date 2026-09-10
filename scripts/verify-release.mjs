@@ -8,12 +8,12 @@ const run = promisify(execFile);
 const manifest = JSON.parse(await readFile("manifest.json", "utf8"));
 const packageJson = JSON.parse(await readFile("package.json", "utf8"));
 const versions = JSON.parse(await readFile("versions.json", "utf8"));
-const sourceFiles = await filesUnder("src", ".ts");
+const sourceFiles = [...await filesUnder("src", ".ts"), ...await filesUnder("src", ".mts")];
 const sourceByFile = new Map(
   await Promise.all(sourceFiles.map(async (file) => [file, await readFile(file, "utf8")]))
 );
 const source = [...sourceByFile.values()].join("\n");
-const localRunnerFiles = await filesUnder("local-runner/src", ".ts");
+const localRunnerFiles = await filesUnder("local-runner/src", ".mts");
 const localRunnerSource = (await Promise.all(localRunnerFiles.map(async (file) => await readFile(file, "utf8")))).join("\n");
 const readme = await readFile("README.md", "utf8");
 const releaseMedia = JSON.parse(await readFile("docs/release-media.json", "utf8"));

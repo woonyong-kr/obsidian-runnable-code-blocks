@@ -1,5 +1,10 @@
 # Changelog
 
+## 0.7.6
+
+- Separate Node companion and browser-only entries into explicit ESM modules with independent NodeNext and browser type checks. Keep the shared source, HTTP protocol, settings, and distribution paths.
+- Separate DOM interfaces from the Obsidian adapter and reject companion/Node built-in imports from the plugin build. Continue linting and testing all runtime sources.
+
 ## 0.7.5
 
 - Remove ReactDOM script-resource implementations from the bundled preview runtime. Unsupported script preinitialization and rendered script elements now report an explicit error before creating a resource; self-contained components, hooks, events, and portals remain supported.

@@ -1,4 +1,5 @@
 import esbuild from "esbuild";
+import { isBuiltin } from "node:module";
 import { copyFile, mkdir, readFile, rm } from "node:fs/promises";
 import { reactRuntimePlugin } from "./scripts/react-runtime-plugin.mjs";
 
@@ -16,15 +17,21 @@ const shared = {
   treeShaking: true,
 };
 
-await esbuild.build({
+const pluginBuild = await esbuild.build({
   ...shared,
   entryPoints: ["src/main.ts"],
   external: ["obsidian", "electron"],
   format: "cjs",
   outfile: "main.js",
   platform: "node",
+  metafile: true,
   banner: { js: `/*!\n${thirdPartyNotices.replaceAll("*/", "* /")}\n*/` },
 });
+for (const [path, input] of Object.entries(pluginBuild.metafile.inputs)) {
+  if (path.startsWith("local-runner/") || input.imports.some(({ external, path }) => external && isBuiltin(path))) {
+    throw new Error(`Node-only code must not enter the Obsidian plugin: ${path}`);
+  }
+}
 
 await rm("dist-site", { recursive: true, force: true });
 await mkdir("dist-site", { recursive: true });

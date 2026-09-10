@@ -2,7 +2,7 @@ import { appendElement, configureDomAdapter } from "../src/dom";
 import { LANGUAGE_EXAMPLES } from "../src/language-examples";
 import { SUPPORTED_LANGUAGES } from "../src/supported-languages";
 import { createStaticWebRunnerRegistry, enhanceRunnableCodeBlocks } from "../src/web-adapter";
-import { BROWSER_DOM_ADAPTER } from "./browser-dom-adapter";
+import { BROWSER_DOM_ADAPTER } from "./browser-dom-adapter.mjs";
 
 configureDomAdapter(BROWSER_DOM_ADAPTER);
 

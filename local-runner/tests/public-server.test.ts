@@ -1,8 +1,8 @@
 // @vitest-environment node
 import type { AddressInfo } from "node:net";
 import { afterEach, describe, expect, it, vi } from "vitest";
-import { ExecutionCancelledError, type ExecutionEngine } from "../src/engine";
-import { createPublicRunnerServer } from "../src/public-server";
+import { ExecutionCancelledError, type ExecutionEngine } from "../src/engine.mjs";
+import { createPublicRunnerServer } from "../src/public-server.mjs";
 
 const ORIGIN = "https://woonyong-kr.github.io";
 const REQUEST_ID = "181a37b0-1e5a-4cc7-a5b2-f6e005c04316";

@@ -4,7 +4,12 @@
     "declaration": false,
     "esModuleInterop": true,
     "forceConsistentCasingInFileNames": true,
-    "lib": ["DOM", "DOM.Iterable", "ES2022", "WebWorker"],
+    "lib": [
+      "DOM",
+      "DOM.Iterable",
+      "ES2022",
+      "WebWorker"
+    ],
     "module": "ESNext",
     "moduleResolution": "Bundler",
     "noEmit": true,
@@ -15,7 +20,19 @@
     "skipLibCheck": true,
     "strict": true,
     "target": "ES2022",
-    "types": ["node"]
+    "types": [
+      "node"
+    ]
   },
-  "include": ["src/**/*.ts", "site/**/*.ts", "tests/**/*.ts", "scripts/**/*.ts", "local-runner/**/*.ts"]
+  "include": [
+    "src/**/*.ts",
+    "src/**/*.mts",
+    "site/**/*.ts",
+    "site/**/*.mts",
+    "tests/**/*.ts",
+    "scripts/**/*.ts"
+  ],
+  "exclude": [
+    "local-runner"
+  ]
 }

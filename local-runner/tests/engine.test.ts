@@ -3,7 +3,7 @@ import { mkdtemp, readFile, writeFile, rm } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { afterEach, describe, expect, it, vi } from "vitest";
-import { DockerEngine } from "../src/engine";
+import { DockerEngine } from "../src/engine.mjs";
 
 const directories: string[] = [];
 afterEach(async () => { vi.useRealTimers(); for (const path of directories.splice(0)) await rm(path, { recursive: true, force: true }); });

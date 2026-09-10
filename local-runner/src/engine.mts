@@ -1,7 +1,7 @@
 import { execFile, spawn, type ChildProcessWithoutNullStreams } from "node:child_process";
 import { randomUUID } from "node:crypto";
 import { promisify } from "node:util";
-import { CONTAINER_PROFILES, type ContainerProfile } from "./profiles";
+import { CONTAINER_PROFILES, type ContainerProfile } from "./profiles.mjs";
 
 const exec = promisify(execFile);
 const OUTPUT_LIMIT = 64_000;
