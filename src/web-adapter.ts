@@ -12,8 +12,15 @@ export interface StaticWebRunnerOptions {
   remoteExecutionEnabled?: boolean;
 }
 
-export function createStaticWebRunnerRegistry(options: StaticWebRunnerOptions): RunnerRegistry {
-  const endpoint = normalizeOptionalEndpoint(options.personalCompilerEndpoint);
+export function createStaticWebRunnerRegistry(options: StaticWebRunnerOptions | (() => StaticWebRunnerOptions)): RunnerRegistry {
+  if (typeof options === "function") {
+    return createRunnerRegistry(() => staticWebPolicy(options()));
+  }
+  return createRunnerRegistry(staticWebPolicy({ ...options, personalCompilerEndpoint: normalizeOptionalEndpoint(options.personalCompilerEndpoint) }));
+}
+
+function staticWebPolicy(options: StaticWebRunnerOptions): RunnerCompositionOptions {
+  const endpoint = options.personalCompilerEndpoint?.trim() || undefined;
   const composition: RunnerCompositionOptions = {
     executionOrder: "private-first",
     fetch: options.fetch,
@@ -21,7 +28,7 @@ export function createStaticWebRunnerRegistry(options: StaticWebRunnerOptions): 
     personalCompilerEndpoint: endpoint,
     remoteExecutionEnabled: options.remoteExecutionEnabled ?? true
   };
-  return createRunnerRegistry(composition);
+  return composition;
 }
 
 function fenceFromCodeElement(code: HTMLElement): string | null {

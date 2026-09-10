@@ -52,6 +52,42 @@ describe("web adapter", () => {
     })).toThrow("HTTPS");
   });
 
+  it("isolates invalid host configuration and recovers without sending code before Run", async () => {
+    let endpoint = "http://invalid.example.com";
+    const fetch_ = vi.fn(async (_url: RequestInfo | URL, init?: RequestInit) => new Response(JSON.stringify(init?.method === "POST" ? {
+      durationMs: 1, exitCode: 0, language: "java", provider: "Personal compiler", stderr: "", stdout: "42"
+    } : { languages: ["java"], protocolVersion: 1, runnerVersion: "1", service: "personal-compiler", status: "online" })));
+    const registry = createStaticWebRunnerRegistry(() => ({ fetch: fetch_, personalCompilerEndpoint: endpoint, remoteExecutionEnabled: false }));
+    const browser = registry.create("javascript");
+    const java = registry.create("java");
+    if (!browser || !java) throw new Error("Expected configured languages");
+    expect(browser.environment).toBe("browser");
+    await expect(java.availability()).resolves.toMatchObject({ available: false, reason: "misconfigured" });
+    expect(fetch_).not.toHaveBeenCalled();
+
+    endpoint = "https://recovered.example.com";
+    await expect(java.availability()).resolves.toMatchObject({ available: true });
+    expect(fetch_.mock.calls.every(([, init]) => init?.method !== "POST")).toBe(true);
+    await expect(java.run("class Main {}" )).resolves.toMatchObject({ stdout: "42" });
+    const posts = fetch_.mock.calls.filter(([, init]) => init?.method === "POST");
+    expect(posts).toHaveLength(1);
+    expect(posts[0]?.[0]).toBe("https://recovered.example.com/v1/run");
+    browser.dispose?.();
+    java.dispose?.();
+  });
+
+  it("keeps other providers disabled after an unknown personal-compiler result", async () => {
+    const fetch_ = vi.fn(async (_url: RequestInfo | URL, init?: RequestInit) => {
+      if (init?.method === "POST") throw new Error("Connection lost");
+      return new Response(JSON.stringify({ languages: ["java"], protocolVersion: 1, runnerVersion: "1", service: "personal-compiler", status: "online" }));
+    });
+    const java = createStaticWebRunnerRegistry(() => ({ fetch: fetch_, personalCompilerEndpoint: "https://unknown.example.com", remoteExecutionEnabled: false })).create("java");
+    if (!java) throw new Error("Expected Java runner");
+    await expect(java.run("private source")).rejects.toMatchObject({ executionState: "unknown" });
+    expect(fetch_.mock.calls.filter(([, init]) => init?.method === "POST")).toHaveLength(1);
+    expect(fetch_.mock.calls.every(([url]) => typeof url === "string" && url.startsWith("https://unknown.example.com/"))).toBe(true);
+  });
+
   it("enhances only run-language fences from standard Markdown HTML", async () => {
     document.body.innerHTML = `
       <pre><code class="language-run-javascript">console.log("Hello")</code></pre>

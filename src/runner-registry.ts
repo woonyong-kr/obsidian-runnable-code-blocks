@@ -1,4 +1,4 @@
-import type { CodeRunner } from "./contracts";
+import type { CodeRunner, RunnerAvailability, RunnerEnvironment } from "./contracts";
 
 export type RunnerFactory = () => CodeRunner;
 
@@ -27,15 +27,17 @@ export class UnavailableRunner implements CodeRunner {
   readonly environment;
   readonly language;
   readonly #detail;
+  readonly #reason;
 
-  constructor(language: string, environment: "browser", detail: string) {
+  constructor(language: string, environment: RunnerEnvironment, detail: string, reason?: RunnerAvailability["reason"]) {
     this.language = language;
     this.environment = environment;
     this.#detail = detail;
+    this.#reason = reason;
   }
 
   async availability() {
-    return { available: false, detail: this.#detail };
+    return { available: false, detail: this.#detail, reason: this.#reason };
   }
 
   async run(): Promise<never> {

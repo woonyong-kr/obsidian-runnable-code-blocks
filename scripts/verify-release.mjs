@@ -138,7 +138,6 @@ if (!source.includes("executionState === \"not-started\"")) {
   errors.push("fallback must require a known not-started execution state");
 }
 if (!readme.includes("does not access the filesystem")) errors.push("Community runtime boundary is not documented");
-if (!readme.includes("docs/assets/runnable-code-blocks-preview.png")) errors.push("README does not show the sharp execution preview");
 if (!readme.includes("docs/assets/runnable-code-blocks-demo.gif")) errors.push("README does not show the animated execution demo");
 if (!source.includes("script-src 'none'")) errors.push("HTML/CSS previews must block scripts");
 if (!source.includes('"allow-scripts"')) errors.push("interactive web previews must use an isolated script sandbox");

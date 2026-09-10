@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.7.7
+
+- Let static hosts refresh provider configuration through the shared runner registry without remounting editors. Invalid personal-compiler addresses no longer prevent browser examples from mounting; repaired configuration is picked up on the next availability check.
+- Preserve explicit execution and hosts that disable public providers, including unknown-outcome protection. Forward availability cancellation context through the policy-aware registry.
+- Lead the README with one browser-demo GIF and first-use guidance; move integration and scanner details to the developer guide and add a product roadmap.
+
 ## 0.7.6
 
 - Separate Node companion and browser-only entries into explicit ESM modules with independent NodeNext and browser type checks. Keep the shared source, HTTP protocol, settings, and distribution paths.

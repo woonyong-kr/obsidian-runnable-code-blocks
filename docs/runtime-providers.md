@@ -78,3 +78,48 @@ A supported language requires all of the following:
 - README and release-verifier coverage.
 
 Do not claim “all languages.” The project currently supports the exact 24-fence catalog documented in the README.
+
+
+<details>
+<summary>Community scanner findings and why some APIs remain</summary>
+
+The [Community plugin page](https://community.obsidian.md/plugins/runnable-code-blocks) combines source analysis with release checks. A source finding is not proof that the installed plugin uses that API.
+
+| Finding | Runtime boundary and handling |
+| --- | --- |
+| Node imports and bare timers in `local-runner/src` | These belong to the separately started Node.js companion. Its explicit ESM (`.mts`) source has an independent NodeNext type check without browser globals. The plugin build rejects any companion or Node built-in import. The companion artifact has its own release. |
+| Extra release files | Plugin releases from 0.7.3 contain only `main.js`, `manifest.json`, and `styles.css`. Third-party notices are embedded in `main.js`; optional companion files are distributed separately. |
+| CSS `:has()` | Replaced with a lifecycle-managed host class and `:focus-within`, retaining hover, keyboard, and touch access to source editing. |
+| Dynamic script creation in bundled ReactDOM | From 0.7.5, the build removes ReactDOM’s script-resource implementations and replaces them with an explicit unsupported-operation error. This covers `preinit`, `preinitModule`, and rendered script elements. The reviewed upstream source hash is checked before applying the restriction. Components, hooks, events, and portals remain supported; the Worker, sanitizer, and CSP remain additional boundaries. See `scripts/restrict-react-dom.mjs` and the browser regressions. |
+| `document.createElement` and canvas type checks | These run in explicit browser ESM modules with a browser-only type check. Obsidian’s main-window DOM extensions are unavailable in isolated preview documents and the Worker DOM realm; native constructors refer to that isolated realm. |
+| Clipboard access | Only the explicit Copy button writes the edited code to its window's clipboard. The plugin never reads clipboard contents. |
+
+Unavailable scanner checks and normal runtime disclosures are not reported as passed checks. Please include the individual finding and affected file when reporting a scanner result.
+
+</details>
+
+## Publish runnable notes on a website
+
+The browser adapter recognizes ordinary rendered Markdown:
+
+```html
+<pre><code class="language-run-python">print("Hello")</code></pre>
+```
+
+It shares the fence parser, language catalog, runner composition, editor, and output UI with the Obsidian plugin. A static host can use browser-native and named remote adapters only, or explicitly configure the separate personal-compiler gateway for prepared container languages. The reusable `createStaticWebRunnerRegistry` adapter keeps that provider policy outside the renderer, so another Wiki can supply its own endpoint without forking the editor or runner code. The gateway never exposes the authenticated localhost companion and can be offline without disabling JavaScript, TypeScript, HTML, CSS, Web, Web TypeScript, or React examples. The deployed adapter is available as a [live 24-fence demo](https://woonyong-kr.github.io/obsidian-runnable-code-blocks/).
+
+
+## Hosts with changeable provider configuration
+
+Pass a function to `createStaticWebRunnerRegistry` when a host can repair its endpoint without recreating the editor:
+
+```typescript
+const fetchForHost = window.fetch.bind(window);
+const registry = createStaticWebRunnerRegistry(() => ({
+  fetch: fetchForHost,
+  personalCompilerEndpoint: configuredEndpoint,
+  remoteExecutionEnabled: false,
+}));
+```
+
+Keep the fetch function stable in real integrations. The options are read again for availability and execution. Invalid personal-compiler configuration makes that provider unavailable; built-in browser runners remain available. After changing the endpoint, call the mounted block's `refreshAvailability()`. A successful preflight never submits source: only `run()` does. Keep `remoteExecutionEnabled: false` when public third-party fallback is forbidden. A static options object retains its eager endpoint validation. Host DOM mounting, localization, lazy loading, and deployment remain host-owned.

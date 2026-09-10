@@ -60,9 +60,9 @@ class PolicyAwareRunner implements CodeRunner {
     return this.#current().environment;
   }
 
-  async availability() {
+  async availability(context?: RunContext) {
     const runner = this.#current();
-    const status = await runner.availability();
+    const status = await runner.availability(context);
     this.#ready = status.available && runner === this.#runner ? runner : null;
     return status;
   }
@@ -70,7 +70,7 @@ class PolicyAwareRunner implements CodeRunner {
   async run(code: string, context?: RunContext) {
     const runner = this.#current();
     if (this.#ready !== runner) {
-      const status = await runner.availability();
+      const status = await runner.availability(context);
       if (!status.available) {
         throw new ProviderUnavailableError(status.detail, "not-started");
       }
@@ -123,16 +123,7 @@ export function composeLanguageRunner(
         token: options.localRunnerToken ?? ""
       })
     : null;
-  if (options.personalCompilerEnabled && !options.personalCompilerEndpoint?.trim()) {
-    throw new Error("An explicit personal compiler endpoint is required.");
-  }
-  const personalCompiler = options.personalCompilerEnabled === true && options.personalCompilerEndpoint && language.localAdapter !== undefined
-    ? new PersonalCompilerRunner({
-        endpoint: options.personalCompilerEndpoint,
-        fetch: options.fetch,
-        language: language.id
-      })
-    : null;
+  const personalCompiler = personalCompilerRunner(language, options);
   const privateRunners = [
     ...browser,
     ...(local === null ? [] : [local]),
@@ -167,3 +158,13 @@ const BROWSER_FACTORIES: Record<BrowserAdapterId, () => CodeRunner> = {
   "web-preview": () => new BrowserPreviewRunner("web"),
   "web-ts-preview": () => new BrowserPreviewRunner("web-ts")
 };
+
+function personalCompilerRunner(language: SupportedLanguage, options: RunnerCompositionOptions): CodeRunner | null {
+  if (!options.personalCompilerEnabled || language.localAdapter === undefined) return null;
+  try {
+    if (!options.personalCompilerEndpoint?.trim()) throw new Error("An explicit personal compiler endpoint is required.");
+    return new PersonalCompilerRunner({ endpoint: options.personalCompilerEndpoint, fetch: options.fetch, language: language.id });
+  } catch (error) {
+    return new UnavailableRunner(language.id, "remote", error instanceof Error ? error.message : "Invalid personal compiler configuration.", "misconfigured");
+  }
+}
