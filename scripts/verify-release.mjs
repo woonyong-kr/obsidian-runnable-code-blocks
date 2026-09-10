@@ -16,6 +16,7 @@ const source = [...sourceByFile.values()].join("\n");
 const localRunnerFiles = await filesUnder("local-runner/src", ".mts");
 const localRunnerSource = (await Promise.all(localRunnerFiles.map(async (file) => await readFile(file, "utf8")))).join("\n");
 const readme = await readFile("README.md", "utf8");
+const userGuide = await readFile("docs/user-guide.md", "utf8");
 const releaseMedia = JSON.parse(await readFile("docs/release-media.json", "utf8"));
 const errors = [];
 
@@ -36,7 +37,7 @@ const { stdout: supportedLanguageJson } = await run("node_modules/.bin/tsx", [
   'import { SUPPORTED_LANGUAGES } from "./src/supported-languages.ts"; console.log(JSON.stringify(SUPPORTED_LANGUAGES.map(({ id }) => id)));'
 ]);
 const supportedLanguages = JSON.parse(supportedLanguageJson);
-const supportedSection = readme.match(/^## Supported languages\n([\s\S]*?)(?=^## )/mu)?.[1] ?? "";
+const supportedSection = userGuide.match(/^## Supported languages\n([\s\S]*?)(?=^## )/mu)?.[1] ?? "";
 const documentedFences = [...supportedSection.matchAll(/^\| `(run-[a-z][a-z0-9+#-]*)` \|/gmu)]
   .map(([, fence]) => fence);
 const expectedFences = supportedLanguages.map((language) => `run-${language}`);
@@ -123,7 +124,7 @@ if (/-apple-system|BlinkMacSystemFont/u.test(styles)) {
   errors.push("styles.css uses extended system fonts unsupported by the minimum Obsidian version");
 }
 if (JSON.stringify(documentedFences) !== JSON.stringify(expectedFences)) {
-  errors.push("README supported-language table must match the catalog exactly and without duplicates");
+  errors.push("User guide supported-language table must match the catalog exactly and without duplicates");
 }
 for (const file of requiredAdapters) {
   if (!sourceByFile.has(file)) errors.push(`required adapter is missing: ${file}`);
@@ -137,7 +138,7 @@ if (/\.style\.cssText\s*=/u.test(source)) errors.push("runtime source assigns st
 if (!source.includes("executionState === \"not-started\"")) {
   errors.push("fallback must require a known not-started execution state");
 }
-if (!readme.includes("does not access the filesystem")) errors.push("Community runtime boundary is not documented");
+if (!userGuide.includes("does not access the filesystem")) errors.push("Community runtime boundary is not documented");
 if (!readme.includes("docs/assets/runnable-code-blocks-demo.gif")) errors.push("README does not show the animated execution demo");
 if (!source.includes("script-src 'none'")) errors.push("HTML/CSS previews must block scripts");
 if (!source.includes('"allow-scripts"')) errors.push("interactive web previews must use an isolated script sandbox");
