@@ -4,7 +4,7 @@ This optional desktop companion executes selected `run-<language>` blocks in dis
 
 It is not installed by the Obsidian Community Plugin. Docker Desktop, Colima with Docker CLI compatibility, or another local Docker engine must already be running.
 
-Download the standalone `.mjs` from the [companion release](https://github.com/woonyong-kr/obsidian-runnable-code-blocks/releases/tag/companion-0.7.3). The plugin's latest release contains only Obsidian installation files. Existing 0.7.2 companion installations use the same protocol and do not need a process or token reset when the plugin updates.
+Download the standalone `.mjs` from the [companion release](https://github.com/woonyong-kr/obsidian-runnable-code-blocks/releases/tag/companion-0.7.4). The plugin's latest release contains only Obsidian installation files. Existing companions use the same protocol. Update the companion to 0.7.4 for Kotlin coroutines support; stop it when idle and restart the replacement with the existing configuration and pairing token.
 
 ```bash
 node runnable-code-blocks-local-runner.mjs list
@@ -12,7 +12,7 @@ node runnable-code-blocks-local-runner.mjs prepare kotlin java cpp
 node runnable-code-blocks-local-runner.mjs start
 ```
 
-Copy the printed pairing token into **Settings → Runnable Code Blocks → Pairing token**, enable **Local runner**, and keep the process running while executing local blocks. The generated token is stored at `~/.config/runnable-code-blocks/local-runner.json` with owner-only permissions.
+Enable **Settings → Runnable Code Blocks → Local runner**. Under **Pairing token**, create a secret containing the printed token or select an existing secret with that value. Obsidian stores the token in SecretStorage; plugin settings store only the selected secret's name. Keep the companion running while executing local blocks. Its generated token is stored at `~/.config/runnable-code-blocks/local-runner.json` with owner-only permissions. If a block still shows the earlier connection status, choose **Check again**.
 
 `prepare` downloads only the explicitly requested images. `prepare all` is supported but intentionally not automatic because the complete toolchain set is large.
 
@@ -38,6 +38,8 @@ the user's program still runs with the default JVM compilation policy. This does
 increase CPU, memory, execution time, or network permissions. Timeouts return exit
 code 124 and optional `failureReason: "timeout"` with an explanation in stderr.
 Large programs or a heavily loaded host can still reach that deadline.
+
+Kotlin includes the pinned image's bundled `kotlinx-coroutines-core-jvm.jar` on the compile and runtime classpaths. Coroutine examples need no additional downloads; other external libraries are not resolved automatically.
 
 ## Execution cancellation
 

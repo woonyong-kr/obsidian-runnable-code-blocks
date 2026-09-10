@@ -7,6 +7,7 @@ export interface RunnableCodeBlocksSettings {
   executionOrder: ExecutionOrder;
   localExecutionEnabled: boolean;
   localRunnerEndpoint: string;
+  localRunnerSecretId: string;
   remoteExecutionEnabled: boolean;
 }
 
@@ -16,6 +17,7 @@ export const DEFAULT_SETTINGS: RunnableCodeBlocksSettings = {
   executionOrder: "private-first",
   localExecutionEnabled: false,
   localRunnerEndpoint: DEFAULT_LOCAL_RUNNER_ENDPOINT,
+  localRunnerSecretId: LOCAL_RUNNER_SECRET_ID,
   remoteExecutionEnabled: true
 };
 
@@ -33,6 +35,9 @@ export function normalizeSettings(value: unknown): RunnableCodeBlocksSettings {
       ? stored.localExecutionEnabled
       : legacyLocalCompiler || DEFAULT_SETTINGS.localExecutionEnabled,
     localRunnerEndpoint: normalizeLocalEndpoint(stored.localRunnerEndpoint),
+    localRunnerSecretId: typeof stored.localRunnerSecretId === "string"
+      && /^[a-z0-9-]*$/u.test(stored.localRunnerSecretId)
+      ? stored.localRunnerSecretId : LOCAL_RUNNER_SECRET_ID,
     remoteExecutionEnabled: typeof stored.remoteExecutionEnabled === "boolean"
       ? stored.remoteExecutionEnabled
       : !legacyLocalCompiler && DEFAULT_SETTINGS.remoteExecutionEnabled
@@ -81,13 +86,13 @@ export class RunnableCodeBlocksSettingTab extends PluginSettingTab {
       },
       {
         name: "Pairing token",
-        desc: "Paste the token printed by the local runner. It is stored in Obsidian SecretStorage, not plugin data.json.",
+        desc: "Select or create a secret containing the local runner token. Only its name is saved in plugin settings; the token stays in Obsidian SecretStorage.",
         visible: () => this.#plugin.settings.localExecutionEnabled,
         render: (setting) => {
           new SecretComponent(this.app, setting.controlEl)
-            .setValue(this.app.secretStorage.getSecret(LOCAL_RUNNER_SECRET_ID) ?? "")
+            .setValue(this.#plugin.settings.localRunnerSecretId)
             .onChange((value) => {
-              this.app.secretStorage.setSecret(LOCAL_RUNNER_SECRET_ID, value.trim());
+              this.#plugin.settings.localRunnerSecretId = value;
               void this.#plugin.saveSettings();
             });
         }

@@ -36,6 +36,7 @@ describe("Obsidian plugin boundary", () => {
       executionOrder: "private-first",
       localExecutionEnabled: false,
       localRunnerEndpoint: "http://127.0.0.1:17171",
+      localRunnerSecretId: "runnable-code-blocks-local-runner-token",
       remoteExecutionEnabled: false
     });
     expect(register).toHaveBeenCalledTimes(24);

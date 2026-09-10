@@ -8,7 +8,9 @@ const profiles = [
   profile("python", "docker.io/library/python@sha256:7415fbc3c9e4979cc717d92377ab2bc7b2b4a2af1ac03cc52b5f3f88efedaf3a", "python3 -"),
   profile("sql", "docker.io/keinos/sqlite3@sha256:7ea29f0c7e91a8c3f315e831459d07000f34e9e9b25fbc30be2e0481b3e0450f", "sqlite3 -batch"),
   // Short-lived compilation benefits from C1 startup; keep the user's JVM defaults.
-  profile("kotlin", "docker.io/gmazzo/kotlin@sha256:5b19a73f0ede1f5b103921c3a48ae3035d3fe7cbcde15c3eee039a9a0a3aacfb", "cat > Main.kt; kotlinc -J-XX:TieredStopAtLevel=1 Main.kt -include-runtime -d main.jar; java -jar main.jar"),
+  // The pinned Kotlin distribution includes coroutines. Preserve the compiler's
+  // executable JAR entry point and add its bundled dependency without downloads.
+  profile("kotlin", "docker.io/gmazzo/kotlin@sha256:5b19a73f0ede1f5b103921c3a48ae3035d3fe7cbcde15c3eee039a9a0a3aacfb", 'cat > Main.kt; kotlin_lib="$(dirname "$(readlink -f "$(command -v kotlinc)")")/../lib"; coroutines="$kotlin_lib/kotlinx-coroutines-core-jvm.jar"; kotlinc -J-XX:TieredStopAtLevel=1 Main.kt -classpath "$coroutines" -include-runtime -d main.jar; printf "Class-Path: file:%s\\n" "$coroutines" > dependencies.mf; jar ufm main.jar dependencies.mf; java -jar main.jar'),
   profile("java", "docker.io/library/eclipse-temurin@sha256:6ea5548706b60ac0a602eaf48af74792cbab012d90e811ca8db6184b16b5c3d6", "cat > Main.java; java Main.java"),
   profile("c", "docker.io/library/gcc@sha256:9ca91b05c7b07d2979f16413e8b2cd6ec8a7c80ffca4121ccab0aeba33f90460", "cat > main.c; gcc -std=c17 -O0 -o main main.c; ./main"),
   profile("cpp", "docker.io/library/gcc@sha256:9ca91b05c7b07d2979f16413e8b2cd6ec8a7c80ffca4121ccab0aeba33f90460", "cat > main.cpp; g++ -std=c++20 -O0 -o main main.cpp; ./main"),

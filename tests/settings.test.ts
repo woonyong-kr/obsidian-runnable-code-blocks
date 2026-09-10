@@ -1,7 +1,8 @@
-import { App, type Plugin } from "obsidian";
+import { App, SecretComponent, Setting, type Plugin, type SettingGroup } from "obsidian";
 import { describe, expect, it, vi } from "vitest";
 import {
   DEFAULT_SETTINGS,
+  LOCAL_RUNNER_SECRET_ID,
   normalizeSettings,
   RunnableCodeBlocksSettingTab,
   type RunnableCodeBlocksSettings
@@ -23,11 +24,18 @@ describe("normalizeSettings", () => {
   it("accepts current settings", () => {
     expect(normalizeSettings({ executionOrder: "browser-first", localExecutionEnabled: true, localRunnerEndpoint: "http://localhost:17171", remoteExecutionEnabled: true }))
       .toEqual({
+        ...DEFAULT_SETTINGS,
         executionOrder: "private-first",
         localExecutionEnabled: true,
         localRunnerEndpoint: "http://localhost:17171",
         remoteExecutionEnabled: true
       });
+  });
+
+  it("preserves selected and cleared secret references while retaining the legacy default", () => {
+    expect(normalizeSettings({}).localRunnerSecretId).toBe(LOCAL_RUNNER_SECRET_ID);
+    expect(normalizeSettings({ localRunnerSecretId: "chosen-runner" }).localRunnerSecretId).toBe("chosen-runner");
+    expect(normalizeSettings({ localRunnerSecretId: "" }).localRunnerSecretId).toBe("");
   });
 
   it.each(["kotlinCompilerPath", "javaPath"])("keeps legacy %s users local-only until the companion is paired", (key) => {
@@ -58,6 +66,32 @@ describe("RunnableCodeBlocksSettingTab", () => {
     };
     return { saveSettings, settings, tab: new RunnableCodeBlocksSettingTab(new App(), plugin) };
   }
+
+  it("selects a secret by name without exposing or overwriting its value", async () => {
+    const { tab, settings, saveSettings } = createTab();
+    tab.app.secretStorage.setSecret(LOCAL_RUNNER_SECRET_ID, "existing-token-value");
+    tab.app.secretStorage.setSecret("chosen-runner", "chosen-token-value");
+    const setSecret = vi.spyOn(tab.app.secretStorage, "setSecret");
+    const setValue = vi.spyOn(SecretComponent.prototype, "setValue");
+    let select: ((value: string) => unknown) | undefined;
+    const change = vi.spyOn(SecretComponent.prototype, "onChange").mockImplementation(function (this: SecretComponent, callback) {
+      select = callback;
+      return this;
+    });
+    try {
+      const definition = tab.getSettingDefinitions().find(item => "name" in item && item.name === "Pairing token");
+      if (!definition || !("render" in definition) || !definition.render) throw new Error("Missing secret selector");
+      definition.render(new Setting(document.createElement("div")), {} as SettingGroup);
+      expect(setValue).toHaveBeenCalledWith(LOCAL_RUNNER_SECRET_ID);
+      await select?.("chosen-runner");
+      expect(settings).toMatchObject({ localRunnerSecretId: "chosen-runner" });
+      expect(saveSettings).toHaveBeenCalledOnce();
+      expect(setSecret).not.toHaveBeenCalled();
+      expect(tab.app.secretStorage.getSecret(LOCAL_RUNNER_SECRET_ID)).toBe("existing-token-value");
+    } finally {
+      setSecret.mockRestore(); setValue.mockRestore(); change.mockRestore();
+    }
+  });
 
   it("describes the shared language catalog and both execution controls", () => {
     const { tab } = createTab();
@@ -90,6 +124,7 @@ describe("RunnableCodeBlocksSettingTab", () => {
     await tab.setControlValue("unknown", true);
 
     expect(settings).toEqual({
+      ...DEFAULT_SETTINGS,
       executionOrder: "remote-first",
       localExecutionEnabled: true,
       localRunnerEndpoint: "http://localhost:19191",

@@ -49,7 +49,7 @@ export class LocalCompanionRunner implements CodeRunner {
 
   async availability(): Promise<RunnerAvailability> {
     if (this.#token.length < 16) {
-      return { available: false, detail: "Local runner pairing token이 설정되지 않았습니다." };
+      return { available: false, detail: "Open Settings → Runnable Code Blocks → Pairing token and select the secret containing your local runner token, then choose Check again." };
     }
     try {
       const capabilities = await cachedCapabilities(this.#endpoint, this.#token, this.#fetch);

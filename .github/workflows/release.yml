@@ -66,6 +66,6 @@ jobs:
           --draft
           --latest=false
           --title "Optional local companion for $REQUESTED_VERSION"
-          --notes "Standalone Node.js 22 program. This is not an Obsidian plugin installation. Existing compatible companions and pairing tokens do not need to be replaced. See local-runner/README.md in the tagged source for setup."
+          --notes "Standalone Node.js 22 program. This is not an Obsidian plugin installation. Update the companion to receive its runner fixes; restart it when idle with the existing configuration and pairing token. See local-runner/README.md in the tagged source for setup."
           --target "$GITHUB_SHA"
           local-runner/dist/runnable-code-blocks-local-runner.mjs LICENSE

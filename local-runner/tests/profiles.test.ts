@@ -1,9 +1,19 @@
 // @vitest-environment node
 import { describe, expect, it } from "vitest";
-import { containerArguments } from "../src/engine";
+import { containerArguments, DockerEngine } from "../src/engine";
 import { CONTAINER_PROFILES } from "../src/profiles";
 
 describe("container profiles", () => {
+  it.runIf(process.env.RCB_DOCKER_TESTS === "1")("compiles and runs bundled Kotlin coroutines without network access", async () => {
+    const result = await new DockerEngine().run("kotlin", [
+      "import kotlinx.coroutines.*",
+      "fun main() = runBlocking { println(async { 42 }.await()) }"
+    ].join("\n"));
+    expect(result.stderr).toBe("");
+    expect(result.exitCode).toBe(0);
+    expect(result.stdout).toBe("42\n");
+  }, 25_000);
+
   it("pins every image by digest and keeps code out of Docker arguments", () => {
     expect(CONTAINER_PROFILES.size).toBe(16);
     for (const profile of CONTAINER_PROFILES.values()) {
