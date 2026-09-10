@@ -1,112 +1,15 @@
-import type { CodeRunner, RunContext } from "./contracts";
+import type { CodeRunner } from "./contracts";
 import { createRemoteRunner } from "./remote-runner-factory";
 import { RunnerRegistry, UnavailableRunner } from "./runner-registry";
-import { BrowserPreviewRunner } from "./runners/browser-preview-runner";
 import { FallbackRunner } from "./runners/fallback-runner";
-import type { FetchLike } from "./runners/http-client";
-import { BrowserJavaScriptRunner } from "./runners/javascript-runner";
 import { LocalCompanionRunner, DEFAULT_LOCAL_RUNNER_ENDPOINT } from "./runners/local-companion-runner";
-import { PersonalCompilerRunner } from "./runners/personal-compiler-runner";
-import { BrowserTypeScriptRunner } from "./runners/typescript-runner";
-import { ProviderUnavailableError } from "./runners/provider-errors";
-import {
-  SUPPORTED_LANGUAGES,
-  type BrowserAdapterId,
-  type SupportedLanguage
-} from "./supported-languages";
-
-export type ExecutionOrder = "private-first" | "remote-first";
-
-export interface RunnerCompositionOptions {
-  executionOrder?: ExecutionOrder;
-  fetch?: FetchLike;
-  localExecutionEnabled?: boolean;
-  localRunnerEndpoint?: string;
-  localRunnerToken?: string;
-  personalCompilerEnabled?: boolean;
-  personalCompilerEndpoint?: string;
-  remoteExecutionEnabled?: boolean;
-}
-
-export type RunnerCompositionOptionsSource =
-  | RunnerCompositionOptions
-  | (() => RunnerCompositionOptions);
+import type { SupportedLanguage } from "./supported-languages";
+import { browserRunners, personalCompilerRunner } from "./private-runner-composition";
+import { createPolicyRunnerRegistry, type RunnerCompositionOptions, type RunnerCompositionOptionsSource } from "./runner-policy";
+export type { ExecutionOrder, RunnerCompositionOptions, RunnerCompositionOptionsSource } from "./runner-policy";
 
 export function createRunnerRegistry(options: RunnerCompositionOptionsSource = {}): RunnerRegistry {
-  const registry = new RunnerRegistry();
-  for (const language of SUPPORTED_LANGUAGES) {
-    registry.register(language.id, () => typeof options === "function"
-      ? new PolicyAwareRunner(language, options)
-      : composeLanguageRunner(language, options));
-  }
-  return registry;
-}
-
-class PolicyAwareRunner implements CodeRunner {
-  readonly language: string;
-  readonly #definition: SupportedLanguage;
-  readonly #options: () => RunnerCompositionOptions;
-  #policy: RunnerCompositionOptions | null = null;
-  #runner: CodeRunner | null = null;
-  #ready: CodeRunner | null = null;
-
-  constructor(definition: SupportedLanguage, options: () => RunnerCompositionOptions) {
-    this.language = definition.id;
-    this.#definition = definition;
-    this.#options = options;
-  }
-
-  get environment(): CodeRunner["environment"] {
-    return this.#current().environment;
-  }
-
-  async availability(context?: RunContext) {
-    const runner = this.#current();
-    const status = await runner.availability(context);
-    this.#ready = status.available && runner === this.#runner ? runner : null;
-    return status;
-  }
-
-  async run(code: string, context?: RunContext) {
-    const runner = this.#current();
-    if (this.#ready !== runner) {
-      const status = await runner.availability(context);
-      if (!status.available) {
-        throw new ProviderUnavailableError(status.detail, "not-started");
-      }
-    }
-    this.#ready = null;
-    return await runner.run(code, context);
-  }
-
-  dispose(): void {
-    this.#runner?.dispose?.();
-    this.#runner = null;
-    this.#policy = null;
-    this.#ready = null;
-  }
-
-  #current(): CodeRunner {
-    const policy = this.#options();
-    if (this.#runner === null || this.#policy === null || !samePolicy(this.#policy, policy)) {
-      this.#runner?.dispose?.();
-      this.#runner = composeLanguageRunner(this.#definition, policy);
-      this.#policy = { ...policy };
-      this.#ready = null;
-    }
-    return this.#runner;
-  }
-}
-
-function samePolicy(left: RunnerCompositionOptions, right: RunnerCompositionOptions): boolean {
-  return left.executionOrder === right.executionOrder &&
-    left.fetch === right.fetch &&
-    left.localExecutionEnabled === right.localExecutionEnabled &&
-    left.localRunnerEndpoint === right.localRunnerEndpoint &&
-    left.localRunnerToken === right.localRunnerToken &&
-    left.personalCompilerEnabled === right.personalCompilerEnabled &&
-    left.personalCompilerEndpoint === right.personalCompilerEndpoint &&
-    left.remoteExecutionEnabled === right.remoteExecutionEnabled;
+  return createPolicyRunnerRegistry(options, composeLanguageRunner);
 }
 
 export function composeLanguageRunner(
@@ -141,30 +44,4 @@ export function composeLanguageRunner(
   }
   const only = ordered[0];
   return ordered.length === 1 && only !== undefined ? only : new FallbackRunner(language.id, ordered);
-}
-
-function browserRunners(language: SupportedLanguage): CodeRunner[] {
-  return language.browserAdapter === undefined
-    ? []
-    : [BROWSER_FACTORIES[language.browserAdapter]()];
-}
-
-const BROWSER_FACTORIES: Record<BrowserAdapterId, () => CodeRunner> = {
-  "css-preview": () => new BrowserPreviewRunner("css"),
-  "html-preview": () => new BrowserPreviewRunner("html"),
-  "javascript-worker": () => new BrowserJavaScriptRunner(),
-  "react-preview": () => new BrowserPreviewRunner("react"),
-  "typescript-worker": () => new BrowserTypeScriptRunner(),
-  "web-preview": () => new BrowserPreviewRunner("web"),
-  "web-ts-preview": () => new BrowserPreviewRunner("web-ts")
-};
-
-function personalCompilerRunner(language: SupportedLanguage, options: RunnerCompositionOptions): CodeRunner | null {
-  if (!options.personalCompilerEnabled || language.localAdapter === undefined) return null;
-  try {
-    if (!options.personalCompilerEndpoint?.trim()) throw new Error("An explicit personal compiler endpoint is required.");
-    return new PersonalCompilerRunner({ endpoint: options.personalCompilerEndpoint, fetch: options.fetch, language: language.id });
-  } catch (error) {
-    return new UnavailableRunner(language.id, "remote", error instanceof Error ? error.message : "Invalid personal compiler configuration.", "misconfigured");
-  }
 }

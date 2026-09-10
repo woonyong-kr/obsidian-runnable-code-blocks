@@ -48,3 +48,18 @@ await Promise.all([
   copyFile("styles.css", "dist-site/plugin.css"),
   copyFile("site/styles.css", "dist-site/styles.css"),
 ]);
+
+// Validate the restricted host entry independently of the general-purpose demo.
+const privateWebBuild = await esbuild.build({
+  ...shared,
+  entryPoints: ["src/private-web-adapter.ts"],
+  format: "esm",
+  platform: "browser",
+  write: false,
+  metafile: true,
+});
+for (const input of Object.keys(privateWebBuild.metafile.inputs)) {
+  if (/src\/(?:main|provider-catalog|runner-composition|remote-runner-factory)\.ts$|runners\/(?:wandbox|dartpad|swiftfiddle|kotlin-playground|local-companion)-/u.test(input)) {
+    throw new Error(`Restricted web adapter imports a disallowed provider: ${input}`);
+  }
+}

@@ -1,5 +1,6 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
 import type { CodeRunner } from "../src/contracts";
+import { createPrivateWebRunnerRegistry } from "../src/private-web-adapter";
 import { RunnerRegistry } from "../src/runner-registry";
 import { createStaticWebRunnerRegistry, enhanceRunnableCodeBlocks } from "../src/web-adapter";
 
@@ -15,6 +16,11 @@ function successfulRunner(language: string): CodeRunner {
 afterEach(() => {
   document.body.replaceChildren();
 });
+
+const hostRegistries = [
+  { label: "general", create: createStaticWebRunnerRegistry },
+  { label: "private-only", create: createPrivateWebRunnerRegistry },
+];
 
 describe("web adapter", () => {
   it("keeps the optional personal compiler in reusable adapter configuration", async () => {
@@ -52,12 +58,12 @@ describe("web adapter", () => {
     })).toThrow("HTTPS");
   });
 
-  it("isolates invalid host configuration and recovers without sending code before Run", async () => {
+  it.each(hostRegistries)("$label isolates invalid host configuration and recovers without sending code before Run", async ({ create }) => {
     let endpoint = "http://invalid.example.com";
     const fetch_ = vi.fn(async (_url: RequestInfo | URL, init?: RequestInit) => new Response(JSON.stringify(init?.method === "POST" ? {
       durationMs: 1, exitCode: 0, language: "java", provider: "Personal compiler", stderr: "", stdout: "42"
     } : { languages: ["java"], protocolVersion: 1, runnerVersion: "1", service: "personal-compiler", status: "online" })));
-    const registry = createStaticWebRunnerRegistry(() => ({ fetch: fetch_, personalCompilerEndpoint: endpoint, remoteExecutionEnabled: false }));
+    const registry = create(() => ({ fetch: fetch_, personalCompilerEndpoint: endpoint, remoteExecutionEnabled: false }));
     const browser = registry.create("javascript");
     const java = registry.create("java");
     if (!browser || !java) throw new Error("Expected configured languages");
@@ -76,12 +82,12 @@ describe("web adapter", () => {
     java.dispose?.();
   });
 
-  it("keeps other providers disabled after an unknown personal-compiler result", async () => {
+  it.each(hostRegistries)("$label keeps other providers disabled after an unknown personal-compiler result", async ({ create }) => {
     const fetch_ = vi.fn(async (_url: RequestInfo | URL, init?: RequestInit) => {
       if (init?.method === "POST") throw new Error("Connection lost");
       return new Response(JSON.stringify({ languages: ["java"], protocolVersion: 1, runnerVersion: "1", service: "personal-compiler", status: "online" }));
     });
-    const java = createStaticWebRunnerRegistry(() => ({ fetch: fetch_, personalCompilerEndpoint: "https://unknown.example.com", remoteExecutionEnabled: false })).create("java");
+    const java = create(() => ({ fetch: fetch_, personalCompilerEndpoint: "https://unknown.example.com", remoteExecutionEnabled: false })).create("java");
     if (!java) throw new Error("Expected Java runner");
     await expect(java.run("private source")).rejects.toMatchObject({ executionState: "unknown" });
     expect(fetch_.mock.calls.filter(([, init]) => init?.method === "POST")).toHaveLength(1);

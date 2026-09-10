@@ -125,3 +125,9 @@ const registry = createStaticWebRunnerRegistry(() => ({
 Keep the fetch function stable in real integrations. The options are read again for availability and execution. Invalid personal-compiler configuration makes that provider unavailable; built-in browser runners remain available. After changing the endpoint, call the mounted block's `refreshAvailability()`. A successful preflight never submits source: only `run()` does. Keep `remoteExecutionEnabled: false` when public third-party fallback is forbidden. A static options object retains its eager endpoint validation. Host DOM mounting, localization, lazy loading, and deployment remain host-owned.
 
 The shared adapter is ready for hosts to replace direct runner composition. Each host should validate its endpoint recovery, lazy mounting, Stop acknowledgement, and disabled-public-provider policy before updating its pinned adapter.
+
+### Restricted website bundle
+
+Hosts that prohibit public third-party providers and the localhost companion should import `createPrivateWebRunnerRegistry` from `src/private-web-adapter.ts`, rather than the general `web-adapter` entry. It accepts a static object or a function returning `{ fetch, personalCompilerEndpoint }`. Browser-supported fences always select their built-in runner; other prepared languages use only the configured personal compiler. There is no fallback chain in this entry.
+
+It shares browser/personal factories and policy refresh with the plugin. The build independently bundles this entry and rejects public-provider, general-composition, and localhost-companion dependencies. Malformed or absent endpoints remain recoverable provider-unavailable states without preventing browser examples from mounting.
