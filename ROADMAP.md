@@ -11,7 +11,7 @@ Runnable Code Blocks helps readers experiment with code without leaving their no
 
 ## In progress
 
-- Consolidate website provider composition while retaining offline browser examples, explicit execution, and host-specific provider restrictions.
+- Make connection recovery on hosted examples work without losing edits, while keeping offline examples available.
 - Review first-use and repeated-render interactions using reproducible reports from the wider Obsidian ecosystem.
 
 ## Under consideration

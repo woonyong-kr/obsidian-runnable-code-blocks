@@ -24,7 +24,7 @@ Read an explanation, change its code, and run it without leaving the note. The r
 
 ![Editing, running, interacting with, and copying a React example in the browser demo](docs/assets/runnable-code-blocks-demo.gif)
 
-Browser demo captured September 9, 2026 using 0.7.3. This is not an Obsidian recording; the illustrated controls are unchanged in 0.7.6.
+Browser demo captured September 9, 2026 using 0.7.3. This is not an Obsidian recording; the illustrated controls are unchanged in 0.7.7.
 
 ## Try it in 60 seconds
 
@@ -236,7 +236,6 @@ See the [roadmap](ROADMAP.md) for available features, work in progress, and idea
 
 ## Development and integration
 
-- [Report a bug](https://github.com/woonyong-kr/obsidian-runnable-code-blocks/issues/new) with the fence, environment/provider label, exact output, and Obsidian version. Use a small example without secrets.
 - Read the [changelog](CHANGELOG.md), [runtime provider guide](docs/runtime-providers.md), and [local companion setup](local-runner/README.md).
 - For code changes, see [Contributing](CONTRIBUTING.md), the [design system](docs/design-system.md), and [CI results](https://github.com/woonyong-kr/obsidian-runnable-code-blocks/actions). Website integration and runtime boundaries are described in the [integration guide](docs/runtime-providers.md).
 

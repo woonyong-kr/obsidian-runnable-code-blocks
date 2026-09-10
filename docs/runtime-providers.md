@@ -123,3 +123,5 @@ const registry = createStaticWebRunnerRegistry(() => ({
 ```
 
 Keep the fetch function stable in real integrations. The options are read again for availability and execution. Invalid personal-compiler configuration makes that provider unavailable; built-in browser runners remain available. After changing the endpoint, call the mounted block's `refreshAvailability()`. A successful preflight never submits source: only `run()` does. Keep `remoteExecutionEnabled: false` when public third-party fallback is forbidden. A static options object retains its eager endpoint validation. Host DOM mounting, localization, lazy loading, and deployment remain host-owned.
+
+The shared adapter is ready for hosts to replace direct runner composition. Each host should validate its endpoint recovery, lazy mounting, Stop acknowledgement, and disabled-public-provider policy before updating its pinned adapter.
