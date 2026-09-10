@@ -304,51 +304,41 @@ test("uses the configured personal compiler before Wandbox for Java", async ({ p
   expect(wandboxRequests).toEqual([]);
 });
 
-test("blocks ReactDOM script resources inside the opaque preview", async ({ page }) => {
-  const attemptedRequests: string[] = [];
-  const failedRequests: string[] = [];
-  const responses: string[] = [];
-  page.on("request", (request) => {
-    if (request.url().includes("react-script-must-not-load")) {
-      attemptedRequests.push(request.url());
-    }
+for (const scriptCase of [
+  { name: "preinit", source: 'import { preinit } from "react-dom"; preinit("/react-script-must-not-load.js", { as: "script" }); export default () => <p>Unexpected</p>;' },
+  { name: "preinitModule", source: 'import { preinitModule } from "react-dom"; preinitModule("/react-script-must-not-load.js"); export default () => <p>Unexpected</p>;' },
+  { name: "hoisted script", source: 'export default () => <script async src="/react-script-must-not-load.js" />;' },
+  { name: "inline script", source: 'export default () => <script>{"console.log(123)"}</script>;' }
+]) {
+  test(`rejects React ${scriptCase.name} before script creation and recovers`, async ({ page }) => {
+    const attemptedRequests: string[] = [];
+    page.on("request", (request) => {
+      if (request.url().includes("react-script-must-not-load")) attemptedRequests.push(request.url());
+    });
+    await page.goto("/");
+    const lesson = page.locator("[data-featured-test-case]");
+    await lesson.locator(".cm-content").fill(scriptCase.source);
+    await lesson.getByRole("button", { name: "Run code", exact: true }).click();
+    await expect(lesson.locator(".rcb__output")).toContainText("External script resources are not supported in run-react");
+    expect(attemptedRequests).toEqual([]);
+
+    // A rejected resource must not leave the editor or Worker stuck.
+    const stop = lesson.getByRole("button", { name: "Stop", exact: true });
+    if (await stop.isVisible()) await stop.click();
+    await lesson.locator(".cm-content").fill('export default () => <p>Sandbox remains ready</p>;');
+    await lesson.getByRole("button", { name: "Run code", exact: true }).click();
+    await expect(lesson.locator(".rcb__console-meta")).toContainText("Preview ready");
+    const outer = lesson.locator(".rcb__preview-frame");
+    await expect(outer).toHaveAttribute("referrerpolicy", "no-referrer");
+    await expect(outer).not.toHaveAttribute("sandbox", /allow-same-origin/u);
+    const previewFrame = outer.contentFrame().locator("#preview");
+    await expect(previewFrame).toHaveAttribute("referrerpolicy", "no-referrer");
+    await expect(previewFrame).not.toHaveAttribute("sandbox", /allow-same-origin/u);
+    await expect(previewFrame.contentFrame().getByText("Sandbox remains ready")).toBeVisible();
+    await expect(previewFrame.contentFrame().locator('script[src]')).toHaveCount(0);
+    expect(attemptedRequests).toEqual([]);
   });
-  page.on("requestfailed", (request) => {
-    if (request.url().includes("react-script-must-not-load")) {
-      failedRequests.push(request.failure()?.errorText ?? "unknown");
-    }
-  });
-  page.on("response", (response) => {
-    if (response.url().includes("react-script-must-not-load")) {
-      responses.push(response.url());
-    }
-  });
-  await page.goto("/");
-  const lesson = page.locator("[data-featured-test-case]");
-  await lesson.locator(".cm-content").fill(`import { preinit } from "react-dom";
-
-preinit("/react-script-must-not-load.js", { as: "script" });
-
-export default function App() {
-  return <p>Sandbox remains ready</p>;
-}`);
-
-  await lesson.getByRole("button", { name: "Run code" }).click();
-  await expect(lesson.locator(".rcb__console-meta")).toContainText("Preview ready");
-  const outer = lesson.locator(".rcb__preview-frame");
-  await expect(outer).toHaveAttribute("referrerpolicy", "no-referrer");
-  await expect(outer).not.toHaveAttribute("sandbox", /allow-same-origin/u);
-  const previewFrame = outer.contentFrame().locator("#preview");
-  await expect(previewFrame).toHaveAttribute("referrerpolicy", "no-referrer");
-  await expect(previewFrame).not.toHaveAttribute("sandbox", /allow-same-origin/u);
-  await expect(previewFrame.contentFrame().getByText("Sandbox remains ready")).toBeVisible();
-  await expect(previewFrame.contentFrame().locator('script[src]')).toHaveCount(0);
-
-  expect(attemptedRequests).toHaveLength(0);
-  expect(failedRequests).toHaveLength(0);
-  expect(responses).toEqual([]);
-  expect(page.url()).not.toContain("react-script-must-not-load");
-});
+}
 
 test("bounds direct preview message relays with one truncation marker", async ({ page }) => {
   await page.goto("/");

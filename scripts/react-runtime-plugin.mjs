@@ -2,6 +2,7 @@ import esbuild from "esbuild";
 import { readFile } from "node:fs/promises";
 import { createRequire } from "node:module";
 import { fileURLToPath } from "node:url";
+import { restrictReactDOM } from "./restrict-react-dom.mjs";
 
 const VIRTUAL_MODULE = "virtual:react-runtime";
 const VIRTUAL_NAMESPACE = "runnable-code-blocks-react-runtime";
@@ -53,6 +54,20 @@ async function bundledReactRuntime() {
       logLevel: "silent",
       minify: true,
       platform: "browser",
+      plugins: [{
+        name: "restricted-react-dom",
+        setup(build) {
+          let restricted = false;
+          build.onLoad({ filter: /[/\\]react-dom[/\\]cjs[/\\]react-dom-client\.production\.js$/ }, async ({ path }) => {
+            const contents = restrictReactDOM(await readFile(path, "utf8"));
+            restricted = true;
+            return { contents, loader: "js" };
+          });
+          build.onEnd(() => {
+            if (!restricted) throw new Error("The restricted ReactDOM runtime was not included.");
+          });
+        }
+      }],
       target: "es2022",
       write: false
     }),

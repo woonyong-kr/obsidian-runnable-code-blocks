@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.7.5
+
+- Remove ReactDOM script-resource implementations from the bundled preview runtime. Unsupported script preinitialization and rendered script elements now report an explicit error before creating a resource; self-contained components, hooks, events, and portals remain supported.
+- Fail the build if the reviewed ReactDOM source changes or any restriction is missing. Apply the same runtime to the plugin and static adapter, with the modification disclosed in third-party notices.
+- Verify all four blocked paths, no external request, and recovery to a normal React preview.
+
 ## 0.7.3
 
 - Recheck Worker responsiveness after the host resumes from suspension instead of treating a paused window as a hung Worker; keep automatic termination for unresponsive code.
