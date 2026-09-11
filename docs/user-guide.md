@@ -4,8 +4,8 @@
 
 ## Try it in 60 seconds
 
-1. Download **main.js**, **manifest.json**, and **styles.css** from [release 0.7.7](https://github.com/woonyong-kr/obsidian-runnable-code-blocks/releases/tag/0.7.7).
-2. Create `.obsidian/plugins/runnable-code-blocks/` inside your Vault and put those three files there. Reload Obsidian, then enable **Runnable Code Blocks** under **Settings → Community plugins**. Official Community listing is pending; the Community introduction page is not an in-app installation listing.
+1. Open **Settings → Community plugins → Browse** and search for **Runnable Code Blocks**.
+2. Select **Install**, then **Enable**.
 3. Create a normal note and paste this entire fenced block:
 
 ````markdown
@@ -24,7 +24,7 @@ Hello from Obsidian!
 
 This JavaScript example needs no account or separate server on a new installation: the default order tries the built-in Worker first. To prevent any remote submission, turn off **Remote execution** in plugin settings. Older installations can retain their chosen provider order.
 
-Prefer to try it without installation? Open the [live browser editor](https://woonyong-kr.github.io/obsidian-runnable-code-blocks/). Its host may choose a different provider order; check the environment label before running.
+Prefer to try it without installation? Open the [live browser editor](https://woonyong-choi.github.io/obsidian-runnable-code-blocks/). Its host may choose a different provider order; check the environment label before running.
 
 ## Everyday controls
 
@@ -90,7 +90,7 @@ export default function Counter() {
 
 ## Supported languages
 
-Version **0.7.7** recognizes these 24 exact fence names. The columns show available choices, not execution order. A new Obsidian installation tries **built-in browser → enabled local companion → allowed remote provider**. Existing Remote-first settings remain respected.
+Version **0.7.8** recognizes these 24 exact fence names. The columns show available choices, not execution order. A new Obsidian installation tries **built-in browser → enabled local companion → allowed remote provider**. Existing Remote-first settings remain respected.
 
 | Fence | Built-in browser runtime | Optional desktop companion | Remote provider, when selected |
 | --- | --- | --- | --- |
@@ -148,7 +148,7 @@ Older `kotlinCompilerPath` or `javaPath` settings migrate to local-only executio
 
 ## Optional local runner
 
-The local runner is useful when a public provider is unavailable or source should remain on the desktop. It requires Node.js 22 and a running Docker-compatible engine. Download `runnable-code-blocks-local-runner.mjs` from the [separate companion release](https://github.com/woonyong-kr/obsidian-runnable-code-blocks/releases/tag/companion-0.7.4), then prepare only the languages you need:
+The local runner is useful when a public provider is unavailable or source should remain on the desktop. It requires Node.js 22 and a running Docker-compatible engine. Download `runnable-code-blocks-local-runner.mjs` from the [separate companion release](https://github.com/woonyong-kr/obsidian-runnable-code-blocks/releases/tag/companion-0.7.8), then prepare only the languages you need:
 
 ```bash
 node runnable-code-blocks-local-runner.mjs list

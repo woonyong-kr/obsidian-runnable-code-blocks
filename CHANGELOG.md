@@ -2,6 +2,7 @@
 
 ## 0.7.8
 
+- Refresh Community plugin installation instructions and fix the author and live demo links after the GitHub account rename.
 - Isolate sandbox preview lifecycle management from the editor and execution controls. Settle preview readiness once across success, errors, timeout, and disposal while preserving message authentication, cancellation, and restart behavior.
 
 ## 0.7.7

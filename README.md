@@ -4,14 +4,14 @@
 
 Edit and run code without leaving your notes.
 
-**[Download 0.7.7](https://github.com/woonyong-kr/obsidian-runnable-code-blocks/releases/latest) · [Try the live editor](https://woonyong-kr.github.io/obsidian-runnable-code-blocks/) · [User guide](docs/user-guide.md)**
+**[Install in Obsidian](https://community.obsidian.md/plugins/runnable-code-blocks) · [Try the live editor](https://woonyong-choi.github.io/obsidian-runnable-code-blocks/) · [User guide](docs/user-guide.md)**
 
-Available now: **0.7.7** · Obsidian **1.13.0+** · Desktop and mobile. Manual release installation; official in-app listing is pending. See [release notes](CHANGELOG.md) for shipped changes and the [roadmap](ROADMAP.md) for work in progress and plans.
+Available now: **0.7.8** · Obsidian **1.13.0+** · Desktop and mobile. See [release notes](CHANGELOG.md) for shipped changes and the [roadmap](ROADMAP.md) for work in progress and plans.
 
 ## Install and try
 
-1. Download `main.js`, `manifest.json`, and `styles.css` using the link above. Put them in `.obsidian/plugins/runnable-code-blocks/` inside your Vault.
-2. Reload Obsidian and enable **Runnable Code Blocks** in **Settings → Community plugins**.
+1. In **Settings → Community plugins → Browse**, find **Runnable Code Blocks**.
+2. Select **Install**, then **Enable**.
 3. Paste this block in a note, switch to Reading view, and select **Run**:
 
 ````markdown
@@ -24,9 +24,11 @@ The result appears below the code. Edit the example and run again; **Copy** keep
 
 Seven browser fences work without an account or server. Other languages use an optional local companion or a named remote provider. Remote execution is enabled by default; disable it in settings to prevent remote submission.
 
+Manual installation: download `main.js`, `manifest.json`, and `styles.css` from [Releases](https://github.com/woonyong-kr/obsidian-runnable-code-blocks/releases/latest) into `.obsidian/plugins/runnable-code-blocks/`, then reload Obsidian.
+
 ![Runnable Code Blocks walkthrough](docs/assets/runnable-code-blocks-demo.gif)
 
-Browser demo, September 9, 2026 (0.7.3); the illustrated controls are unchanged in 0.7.7.
+Browser demo, September 9, 2026 (0.7.3); the illustrated controls are unchanged in 0.7.8.
 
 ## Help and development
 
