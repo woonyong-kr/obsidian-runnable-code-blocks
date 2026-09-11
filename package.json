@@ -1,6 +1,6 @@
 {
   "name": "runnable-code-blocks",
-  "version": "0.7.7",
+  "version": "0.7.8",
   "description": "Run 24 Markdown code-block fences, including React JSX and TSX, in Obsidian and static websites.",
   "main": "main.js",
   "type": "module",

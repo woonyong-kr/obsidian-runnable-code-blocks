@@ -1,5 +1,9 @@
 # Changelog
 
+## 0.7.8
+
+- Isolate sandbox preview lifecycle management from the editor and execution controls. Settle preview readiness once across success, errors, timeout, and disposal while preserving message authentication, cancellation, and restart behavior.
+
 ## 0.7.7
 
 - Let static hosts refresh provider configuration through the shared runner registry without remounting editors. Invalid personal-compiler addresses no longer prevent browser examples from mounting; repaired configuration is picked up on the next availability check.
